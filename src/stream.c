@@ -59,6 +59,7 @@
 #include <netdb.h>
 #endif
 
+#include "spi.h"
 static const char rcsid[]="$Id$";
 
 /* constants -----------------------------------------------------------------*/
@@ -1840,6 +1841,7 @@ extern int stropen(stream_t *stream, int type, int mode, const char *path)
         case STR_NTRIPCLI: stream->port=openntrip (path,1,   stream->msg); break;
         case STR_FTP     : stream->port=openftp   (path,0,   stream->msg); break;
         case STR_HTTP    : stream->port=openftp   (path,1,   stream->msg); break;
+        case STR_SPI     : stream->port=openspi   (path, mode,  stream->msg); break;
         default: stream->state=0; return 1;
     }
     stream->state=!stream->port?-1:1;
@@ -1864,6 +1866,7 @@ extern void strclose(stream_t *stream)
             case STR_NTRIPCLI: closentrip ((ntrip_t  *)stream->port); break;
             case STR_FTP     : closeftp   ((ftp_t    *)stream->port); break;
             case STR_HTTP    : closeftp   ((ftp_t    *)stream->port); break;
+            case STR_SPI     : closespi   ((spi_t    *)stream->port); break;
         }
     }
     else {
@@ -1928,6 +1931,7 @@ extern int strread(stream_t *stream, unsigned char *buff, int n)
         case STR_NTRIPCLI: nr=readntrip ((ntrip_t  *)stream->port,buff,n,msg); break;
         case STR_FTP     : nr=readftp   ((ftp_t    *)stream->port,buff,n,msg); break;
         case STR_HTTP    : nr=readftp   ((ftp_t    *)stream->port,buff,n,msg); break;
+        case STR_SPI     : nr=readspi   ((spi_t    *)stream->port,buff,n,msg); break;
         default:
             strunlock(stream);
             return 0;
@@ -1971,6 +1975,7 @@ extern int strwrite(stream_t *stream, unsigned char *buff, int n)
         case STR_NTRIPSVR: ns=writentrip ((ntrip_t  *)stream->port,buff,n,msg); break;
         case STR_FTP     :
         case STR_HTTP    :
+        case STR_SPI     : ns=writespi   ((spi_t    *)stream->port,buff,n,msg); break;
         default:
             strunlock(stream);
             return 0;
@@ -2014,6 +2019,7 @@ extern int strstat(stream_t *stream, char *msg)
         case STR_NTRIPCLI: state=statentrip ((ntrip_t  *)stream->port); break;
         case STR_FTP     : state=stateftp   ((ftp_t    *)stream->port); break;
         case STR_HTTP    : state=stateftp   ((ftp_t    *)stream->port); break;
+        case STR_SPI     : state=statespi   ((spi_t    *)stream->port); break;
         default:
             strunlock(stream);
             return 0;
