@@ -7,6 +7,7 @@ struct spi_s
 {
    int fd;
    uint16_t mode;
+   uint32_t speed;
 };
 
 typedef struct spi_s spi_t;

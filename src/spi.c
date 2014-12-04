@@ -3,8 +3,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
+#include <assert.h>
 #include <sys/ioctl.h>
 #include <linux/spi/spidev.h>
+#include <linux/limits.h>
 
 #include "spi.h"
 #include "rtklib.h"
@@ -17,11 +20,43 @@
 #endif
 
 #define BUFFER_LENGTH 300
+#define SPI_DEFAULT_SPEED 245000
+
+static int spi_parse_path(const char *path, char *device_path, uint32_t *speed)
+{
+    int rc;
+    char *p;
+    size_t path_length;
+
+    if ((p = strchr(path,':')) == NULL) {
+        strcpy(device_path, path);
+        *speed = SPI_DEFAULT_SPEED;
+        return 0;
+    }
+
+    path_length = p - path;
+    strncpy(device_path, path, path_length);
+    device_path[path_length] = '\0';
+
+    rc = sscanf(p + 1, "%lu", &speed);
+
+    if (rc == EOF) {
+        return 0;
+    }
+
+    return 1;
+}
 
 spi_t *openspi(const char *path, int mode, char *msg)
 {
     spi_t *device;
     int flags = O_RDWR;
+    uint32_t speed = 0;
+    char device_path[PATH_MAX];
+
+    if (!spi_parse_path(path, device_path, &speed)) {
+        return NULL;
+    }
 
     device = malloc(sizeof(spi_t));
 
@@ -39,7 +74,7 @@ spi_t *openspi(const char *path, int mode, char *msg)
         flags = O_WRONLY;
     }
 
-    device->fd = open(path, flags);
+    device->fd = open(device_path, flags);
 
     if (device->fd < 0) {
         perror("open: ");
@@ -48,6 +83,7 @@ spi_t *openspi(const char *path, int mode, char *msg)
 
     /* hardcoded spi mode for Ublox */
     device->mode = SPI_MODE_0;
+    device->speed = speed;
 
     return device;
 
@@ -71,7 +107,7 @@ int  writespi (spi_t *device, unsigned char *buff, int n, char *msg)
     transaction.tx_buf = (unsigned long) buff;
     transaction.rx_buf = (unsigned long) NULL;
     transaction.len = n;
-    transaction.speed_hz = 245000;
+    transaction.speed_hz = device->speed;
     transaction.bits_per_word = 8;
 
     rc = ioctl(device->fd, SPI_IOC_MESSAGE(1), &transaction);
@@ -96,7 +132,7 @@ int  readspi  (spi_t *device, unsigned char *buff, int n, char *msg)
     transaction.tx_buf = (unsigned long) NULL;
     transaction.rx_buf = (unsigned long) buff;
     transaction.len = n;
-    transaction.speed_hz = 245000;
+    transaction.speed_hz = device->speed;
     transaction.bits_per_word = 8;
 
     rc = ioctl(device->fd, SPI_IOC_MESSAGE(1), &transaction);
