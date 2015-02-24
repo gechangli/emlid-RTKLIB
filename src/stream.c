@@ -891,6 +891,7 @@ static int send_nb(socket_t sock, unsigned char *buff, int n)
 static int gentcp(tcp_t *tcp, int type, char *msg)
 {
     struct hostent *hp;
+#define SVR_REUSEADDR
 #ifdef SVR_REUSEADDR
     int opt=1;
 #endif
