@@ -2,6 +2,7 @@
 *.obs
 *.ini
 *.local
+*.AppleDouble
 Release
 Release_Build
 Debug_Build
