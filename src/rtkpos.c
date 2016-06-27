@@ -495,18 +495,30 @@ static void udpos(rtk_t *rtk, double tt)
         trace(2,"reset rtk position due to large variance: var=%.3f\n",var);
         return;
     }
-    /* state transition of position/velocity/acceleration */
-    F=eye(rtk->nx); FP=mat(rtk->nx,rtk->nx); xp=mat(rtk->nx,1);
-    
-    for (i=0;i<6;i++) {
-        F[i+(i+3)*rtk->nx]=tt;
-    }
-    /* x=F*x, P=F*P*F+Q */
-    matmul("NN",rtk->nx,1,rtk->nx,1.0,F,rtk->x,0.0,xp);
-    matcpy(rtk->x,xp,rtk->nx,1);
-    matmul("NN",rtk->nx,rtk->nx,rtk->nx,1.0,F,rtk->P,0.0,FP);
-    matmul("NT",rtk->nx,rtk->nx,rtk->nx,1.0,FP,F,0.0,rtk->P);
-    
+    /**** calculate state transition of position/velocity/acceleration ****/
+    /* x=Fx, P=FPF' */
+    F=eye(9);  xp=mat(9,1); FP=mat(rtk->nx,rtk->nx);
+
+    /* generate F matrix to update position and velocity */
+    for (i=0;i<6;i++)
+        F[i+(i+3)*9]=tt;
+
+    /* x=F*x, only calculate pos/vel/acc states to save time, the rest are unchanged */
+    matmul("NN",9,1,9,1.0,F,rtk->x,0.0,xp);
+    matcpy(rtk->x,xp,9,1);
+ 
+    /* P=F*P, only calc non-zero off diaganol terms to save time */
+    matcpy(FP,rtk->P,rtk->nx,rtk->nx);
+    for (j=0;j<rtk->nx;j++)
+        for (i=0;i<6;i++)
+            FP[i+j*rtk->nx]+=rtk->P[i+3+j*rtk->nx]*tt;
+ 
+    /* P=FP*F', only calc non-zero off diagonal terms to save time  */
+    matcpy(rtk->P,FP,rtk->nx,rtk->nx);
+    for (j=0;j<rtk->nx;j++)
+        for (i=0;i<6;i++)
+            rtk->P[j+i*rtk->nx]+=rtk->P[j+(i+3)*rtk->nx]*tt;
+
     /* process noise added to only acceleration */
     Q[0]=Q[4]=SQR(rtk->opt.prn[3]); Q[8]=SQR(rtk->opt.prn[4]);
     ecef2pos(rtk->x,pos);
