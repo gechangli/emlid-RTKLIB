@@ -1476,6 +1476,9 @@ extern int outsolheads(unsigned char *buff, const solopt_t *opt)
                    "Q",sep,"ns",sep,"sde(m)",sep,"sdn(m)",sep,"sdu(m)",sep,
                    "sden(m)",sep,"sdnu(m)",sep,"sdue(m)",sep,"age(s)",sep,"ratio");
     }
+    else if (opt->posf==SOLF_ERB) { /* ERB protocol */
+        p+=sprintf(p,"ERB protocol\n");
+    }
     return p-(char *)buff;
 }
 /* std-dev of soltuion -------------------------------------------------------*/
@@ -1514,7 +1517,7 @@ extern int outsols(unsigned char *buff, const sol_t *sol, const double *rb,
         if (opt->nmeaintv[0]<0.0) return 0;
         if (!screent(sol->time,ts,ts,opt->nmeaintv[0])) return 0;
     }
-    if (sol->stat<=SOLQ_NONE||(opt->posf==SOLF_ENU&&norm(rb,3)<=0.0)) {
+    if ((opt->posf != SOLF_ERB) && (sol->stat<=SOLQ_NONE||(opt->posf==SOLF_ENU&&norm(rb,3)<=0.0))) {
         return 0;
     }
     timeu=opt->timeu<0?0:(opt->timeu>20?20:opt->timeu);
@@ -1537,7 +1540,8 @@ extern int outsols(unsigned char *buff, const sol_t *sol, const double *rb,
         case SOLF_XYZ:  p+=outecef(p,s,sol,opt);   break;
         case SOLF_ENU:  p+=outenu(p,s,sol,rb,opt); break;
         case SOLF_NMEA: p+=outnmea_rmc(p,sol);
-                        p+=outnmea_gga(p,sol); break;
+                        p+=outnmea_gga(p,sol);     break;
+        case SOLF_ERB:  p+=outerb(p,sol);          break;
     }
     return p-buff;
 }

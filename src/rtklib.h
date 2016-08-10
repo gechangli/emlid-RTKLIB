@@ -349,6 +349,7 @@ extern "C" {
 #define SOLF_NMEA   3                   /* solution format: NMEA-183 */
 #define SOLF_STAT   4                   /* solution format: solution status */
 #define SOLF_GSIF   5                   /* solution format: GSI F1/F2 */
+#define SOLF_ERB    6                   /* solution format: ERB protocol */
 
 #define SOLQ_NONE   0                   /* solution status: no solution */
 #define SOLQ_FIX    1                   /* solution status: fix */
@@ -907,6 +908,16 @@ typedef struct {        /* solution type */
     float age;          /* age of differential (s) */
     float ratio;        /* AR ratio factor for valiation */
     float thres;        /* AR ratio threshold for valiation */
+    double dop[4];      /* dilution of precision */
+    int nSV;            /* number of SV */
+    int idSV[MAXSAT];   /* IDs of SVs */
+    int typeSV[MAXSAT]; /* type of SVs */
+    float carPh[MAXSAT];/* carrier-phase */
+    float psRan[MAXSAT];/* pseudorange */
+    float freqD[MAXSAT];/* Doppler frequency */
+    int snr[MAXSAT];    /* sonar */
+    double azim[MAXSAT];/* azimuths */
+    double elev[MAXSAT];/* elevations */
 } sol_t;
 
 typedef struct {        /* solution buffer type */
@@ -1690,6 +1701,7 @@ EXPORT int outnmea_gsa(unsigned char *buff, const sol_t *sol,
                        const ssat_t *ssat);
 EXPORT int outnmea_gsv(unsigned char *buff, const sol_t *sol,
                        const ssat_t *ssat);
+EXPORT int outerb(unsigned char *buff, const sol_t *sol);
 
 /* google earth kml converter ------------------------------------------------*/
 EXPORT int convkml(const char *infile, const char *outfile, gtime_t ts,
