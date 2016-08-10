@@ -24,7 +24,7 @@ LDLIBS  = -lm -lrt
 #LDLIBS  = -L$(MKLDIR)/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_gnu_thread -lpthread -lgomp -lm -lrt
 
 all        : rnx2rtkp
-rnx2rtkp   : rnx2rtkp.o rtkcmn.o rinex.o rtkpos.o postpos.o solution.o
+rnx2rtkp   : rnx2rtkp.o rtkcmn.o rinex.o rtkpos.o postpos.o erb.o solution.o
 rnx2rtkp   : lambda.o geoid.o sbas.o preceph.o pntpos.o ephemeris.o options.o
 rnx2rtkp   : ppp.o ppp_ar.o ppp_corr.o rtcm.o rtcm2.o rtcm3.o rtcm3e.o ionex.o tides.o qzslex.o
 
@@ -38,6 +38,8 @@ rtkpos.o   : $(SRC)/rtkpos.c
 	$(CC) -c $(CFLAGS) $(SRC)/rtkpos.c
 postpos.o  : $(SRC)/postpos.c
 	$(CC) -c $(CFLAGS) $(SRC)/postpos.c
+erb.o      : $(SRC)/erb.c
+	$(CC) -c $(CFLAGS) $(SRC)/erb.c
 solution.o : $(SRC)/solution.c
 	$(CC) -c $(CFLAGS) $(SRC)/solution.c
 lambda.o   : $(SRC)/lambda.c
@@ -80,6 +82,7 @@ rtkcmn.o   : $(SRC)/rtklib.h
 rinex.o    : $(SRC)/rtklib.h
 rtkpos.o   : $(SRC)/rtklib.h
 postpos.o  : $(SRC)/rtklib.h
+erb.o      : $(SRC)/rtklib.h
 solution.o : $(SRC)/rtklib.h
 lambda.o   : $(SRC)/rtklib.h
 geoid.o    : $(SRC)/rtklib.h
