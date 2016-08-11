@@ -506,13 +506,13 @@ static void udpos(rtk_t *rtk, double tt)
     /* x=F*x, only calculate pos/vel/acc states to save time, the rest are unchanged */
     matmul("NN",9,1,9,1.0,F,rtk->x,0.0,xp);
     matcpy(rtk->x,xp,9,1);
- 
+
     /* P=F*P, only calc non-zero off diaganol terms to save time */
     matcpy(FP,rtk->P,rtk->nx,rtk->nx);
     for (j=0;j<rtk->nx;j++)
         for (i=0;i<6;i++)
             FP[i+j*rtk->nx]+=rtk->P[i+3+j*rtk->nx]*tt;
- 
+
     /* P=FP*F', only calc non-zero off diagonal terms to save time  */
     matcpy(rtk->P,FP,rtk->nx,rtk->nx);
     for (j=0;j<rtk->nx;j++)
