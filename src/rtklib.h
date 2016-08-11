@@ -1760,7 +1760,7 @@ EXPORT int  strstat  (stream_t *stream, char *msg);
 EXPORT void strsum   (stream_t *stream, int *inb, int *inr, int *outb, int *outr);
 EXPORT void strsetopt(const int *opt);
 EXPORT gtime_t strgettime(stream_t *stream);
-EXPORT void strsendnmea(stream_t *stream, const double *pos);
+EXPORT void strsendnmea(stream_t *stream, sol_t *sol);
 EXPORT void strsendcmd(stream_t *stream, const char *cmd);
 EXPORT void strsettimeout(stream_t *stream, int toinact, int tirecon);
 EXPORT void strsetdir(const char *dir);
