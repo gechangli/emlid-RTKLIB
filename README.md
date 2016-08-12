@@ -8,9 +8,11 @@ We've added a couple of new features:
 * Time mark support. UBX-TIM-TM2 messages are parsed and added as external events to the RINEX logs
 * Fixed NMEA GGA messages sent back to base to contain all valid information
 
+And fixed some bugs, for which a big thanks goes to **RTKLIBexplorer** and his [excellent blog](https://rtklibexplorer.wordpress.com/).
+
 This fork contains work of [Alexey Bulatov](https://github.com/AlexeyBulatov) and [Egor Fedorov](https://github.com/egorf).
 
-A big thanks to the RTKLIB maintainers, who made all this possible.
+Thanks to all RTKLIB maintainers, who made all this possible.
 
 <pre>
 #
