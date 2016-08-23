@@ -57,10 +57,12 @@ static sbs_t sbss={0};          /* sbas messages */
 static lex_t lexs={0};          /* lex messages */
 static sta_t stas[MAXRCV];      /* station infomation */
 static int nepoch=0;            /* number of observation epochs */
+static int nitm  =0;            /* number of invalid time marks */
 static int iobsu =0;            /* current rover observation data index */
 static int iobsr =0;            /* current reference observation data index */
 static int isbs  =0;            /* current sbas message index */
 static int ilex  =0;            /* current lex message index */
+static int iitm  =0;            /* current invalid time mark index */
 static int revs  =0;            /* analysis direction (0:forward,1:backward) */
 static int aborts=0;            /* abort status */
 static sol_t *solf;             /* forward solutions */
@@ -73,6 +75,7 @@ static char proc_rov [64]="";   /* rover for current processing */
 static char proc_base[64]="";   /* base station for current processing */
 static char rtcm_file[1024]=""; /* rtcm data file */
 static char rtcm_path[1024]=""; /* rtcm data path */
+static gtime_t invalidtm[100]={{0}};/* invalid time marks */
 static rtcm_t rtcm;             /* rtcm control struct */
 static FILE *fp_rtcm=NULL;      /* rtcm data file pointer */
 
@@ -316,6 +319,32 @@ static int inputobs(obsd_t *obs, int solq, const prcopt_t *popt)
     }
     return n;
 }
+/* output to file message of invalid time mark -------------------------------*/
+static void outinvalidtm(FILE *fptm, const solopt_t *opt, const gtime_t tm)
+{
+    gtime_t time = tm;
+    double gpst;
+    int week,timeu;
+    char s[100];
+
+    timeu=opt->timeu<0?0:(opt->timeu>20?20:opt->timeu);
+
+    if (opt->times>=TIMES_UTC) time=gpst2utc(time);
+    if (opt->times==TIMES_JST) time=timeadd(time,9*3600.0);
+
+    if (opt->timef) time2str(time,s,timeu);
+    else {
+        gpst=time2gpst(time,&week);
+        if (86400*7-gpst<0.5/pow(10.0,timeu)) {
+            week++;
+            gpst=0.0;
+        }
+        sprintf(s,"%4d   %*.*f",week,6+(timeu<=0?0:timeu+1),timeu,gpst);
+    }
+    strcat(s, "   Q=0, Time mark is not valid\n");
+
+    fwrite(s,strlen(s),1,fptm);
+}
 /* fill structure sol_t for time mark ----------------------------------------*/
 static sol_t fillsoltm(const sol_t solold, const sol_t solnew, const gtime_t tm)
 {
@@ -416,7 +445,16 @@ static void procpos(FILE *fp, FILE *fptm, const prcopt_t *popt, const solopt_t *
             for (i=0;i<n;i++) obs[i].L[1]=obs[i].P[1]=0.0;
         }
 #endif
-        if (!rtkpos(&rtk,obs,n,&navs)) continue;
+        if (!rtkpos(&rtk,obs,n,&navs)) {
+            if (rtk.sol.eventime.time != 0) {
+                if (mode == 0) {
+                    outinvalidtm(fptm, sopt, rtk.sol.eventime);
+                } else if (!revs) {
+                    invalidtm[nitm++] = rtk.sol.eventime;
+                }
+            }
+            continue;
+        }
         
         if (mode==0) { /* forward/backward */
             if (!solstatic) {
@@ -562,6 +600,11 @@ static void combres(FILE *fp, FILE *fptm, const prcopt_t *popt, const solopt_t *
             if (time.time==0||timediff(sols.time,time)<0.0) {
                 time=sols.time;
             }
+        }
+        if (iitm < nitm && timediff(invalidtm[iitm],sols.time)<0.0)
+        {
+            outinvalidtm(fptm,sopt,invalidtm[iitm]);
+            iitm++;
         }
         if (sols.eventime.time != 0)
         {
