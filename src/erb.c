@@ -36,10 +36,10 @@ struct erb_ver {
 } __attribute__((packed));
 struct erb_pos {
     uint32_t timeGPS;
-    int32_t lng;
-    int32_t lat;
-    int32_t altEl;
-    int32_t altMsl;
+    double lng;
+    double lat;
+    double altEl;
+    double altMsl;
     uint32_t accHor;
     uint32_t accVer;
 } __attribute__((packed));
@@ -117,12 +117,13 @@ static void buildpos(char *payload, struct erb_pos position, const uint32_t time
     stdZ = (sol->stat == SOLQ_FIX || sol->stat == SOLQ_FLOAT) ? SQRT(sol->qr[2]) : 0;
 
     position.timeGPS = time;
-    position.lng = pos[1] * R2D * 1e7;
-    position.lat = pos[0] * R2D * 1e7;
-    position.altEl = pos[2] * 1e3;
+    position.lng = pos[1] * R2D;
+    position.lat = pos[0] * R2D;
+    position.altEl = pos[2];
     position.altMsl = position.altEl;
     position.accHor = 1000 * SQRT(stdX * stdX + stdY * stdY);
     position.accVer = 1000 * stdZ;
+
     memcpy(payload, &position, LENGTH_POS);
 }
 /* build ERB-STAT message ----------------------------------------------------*/
@@ -237,6 +238,7 @@ extern int outerb(unsigned char *buff, const sol_t *sol)
 
     time = sol->time;
     gpst = time2gpst(time, &week);
+
 
     /*-------------- ERB-VER -----------------------*/
     buildver(payload, version, gpst, VERSION_HIGH, VERSION_MEDIUM, VERSION_LOW);
