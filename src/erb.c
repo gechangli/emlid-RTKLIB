@@ -17,7 +17,7 @@
 #define ID_VEL            0x05 /* message id ERB-VEL */
 #define ID_SVI            0x06 /* message id ERB-SVI */
 #define LENGTH_VER           7 /* length of payload ERB-VER message */
-#define LENGTH_POS          28 /* length of payload ERB-POS message */
+#define LENGTH_POS          44 /* length of payload ERB-POS message */
 #define LENGTH_STAT          9 /* length of payload ERB-STAT message */
 #define LENGTH_DOPS         12 /* length of payload ERB-DOPS message */
 #define LENGTH_VEL          28 /* length of payload ERB-VEL message */
