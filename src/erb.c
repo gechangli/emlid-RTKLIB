@@ -215,14 +215,14 @@ static int buildsvi(char *payload, struct erb_svi_head sviHead, struct erb_svi_s
     for (i=0;i<nSV;i++) {
         sviSat[i].idSV = sol->idSV[i];
         sviSat[i].typeSV = sol->typeSV[i];
-        sviSat[i].carPh = sol->carPh[i] * 1e2;
+        sviSat[i].carPh = sol->carPh[i];
         sviSat[i].psRan = sol->psRan[i];
         sviSat[i].freqD = sol->freqD[i] * 1e3;
         sviSat[i].snr = sol->snr[i];
         sviSat[i].azim = sol->azim[i] * 1e1;
         sviSat[i].elev = sol->elev[i] * 1e1;
     }
-    memcpy(payload+LENGTH_SVI_HEAD, &sviSat, nSV*LENGTH_SVI_SV);
+    memcpy(payload+LENGTH_SVI_HEAD, sviSat, nSV*LENGTH_SVI_SV);
 
     return (LENGTH_SVI_HEAD + nSV * LENGTH_SVI_SV);
 }
@@ -232,7 +232,7 @@ static void appendmessage(char **p, const char mesID, const char *payload, const
     unsigned char cka=0,ckb=0;
     *p += sprintf(*p, "%c%c", ERB_SYNC_CHAR1, ERB_SYNC_CHAR2);
     *p += sprintf(*p, "%c", mesID);
-    *p += sprintf(*p, "%c%c", length, 0x00);
+    *p += sprintf(*p, "%c%c", (unsigned char)length, (unsigned char)(length >> 8));
     memcpy(*p, payload, length);
     *p += length;
     calculatesum(*p-(length+5), length+5, &cka, &ckb);
@@ -243,7 +243,7 @@ extern int outerb(unsigned char *buff, const sol_t *sol)
 {
     gtime_t time;
     char *p=(char *)buff;
-    char payload[256];
+    char payload[1024];
     struct erb_ver version;
     struct erb_pos position;
     struct erb_stat status;
