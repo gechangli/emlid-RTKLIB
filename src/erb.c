@@ -28,58 +28,78 @@
 #define VERSION_LOW          0 /* Low level of version */
 
 /* structures for ERB protocol -----------------------------------------------*/
+#pragma pack(push,1)
 struct erb_ver {
-    uint32_t timeGPS;
-    uint8_t verH;
-    uint8_t verM;
-    uint8_t verL;
-} __attribute__((packed));
+	uint32_t timeGPS;
+	uint8_t verH;
+	uint8_t verM;
+	uint8_t verL;
+};
+#pragma pack(pop)
+
+#pragma pack(push,1)
 struct erb_pos {
-    uint32_t timeGPS;
-    double lng;
-    double lat;
-    double altEl;
-    double altMsl;
-    uint32_t accHor;
-    uint32_t accVer;
-} __attribute__((packed));
+	uint32_t timeGPS;
+	double lng;
+	double lat;
+	double altEl;
+	double altMsl;
+	uint32_t accHor;
+	uint32_t accVer;
+};
+#pragma pack(pop)
+
+#pragma pack(push,1)
 struct erb_stat {
-    uint32_t timeGPS;
-    uint16_t weekGPS;
-    uint8_t fixType;
-    uint8_t fixStatus;
-    uint8_t numSV;
-} __attribute__((packed));
+	uint32_t timeGPS;
+	uint16_t weekGPS;
+	uint8_t fixType;
+	uint8_t fixStatus;
+	uint8_t numSV;
+};
+#pragma pack(pop)
+
+#pragma pack(push,1)
 struct erb_dops {
-    uint32_t timeGPS;
-    uint16_t dopGeo;
-    uint16_t dopPos;
-    uint16_t dopVer;
-    uint16_t dopHor;
-} __attribute__((packed));
+	uint32_t timeGPS;
+	uint16_t dopGeo;
+	uint16_t dopPos;
+	uint16_t dopVer;
+	uint16_t dopHor;
+};
+#pragma pack(pop)
+
+#pragma pack(push,1)
 struct erb_vel {
-    uint32_t timeGPS;
-    int32_t velN;
-    int32_t velE;
-    int32_t velD;
-    uint32_t speed;
-    int32_t heading;
-    uint32_t accS;
-} __attribute__((packed));
+	uint32_t timeGPS;
+	int32_t velN;
+	int32_t velE;
+	int32_t velD;
+	uint32_t speed;
+	int32_t heading;
+	uint32_t accS;
+};
+#pragma pack(pop)
+
+#pragma pack(push,1)
 struct erb_svi_head {
-    uint32_t timeGPS;
-    uint8_t nSV;
-} __attribute__((packed));
+	uint32_t timeGPS;
+	uint8_t nSV;
+};
+#pragma pack(pop)
+
+#pragma pack(push,1)
 struct erb_svi_sat {
-    uint8_t idSV;
-    uint8_t typeSV;
-    int32_t carPh;
-    int32_t psRan;
-    int32_t freqD;
-    uint16_t snr;
-    uint16_t azim;
-    uint16_t elev;
-} __attribute__((packed));
+	uint8_t idSV;
+	uint8_t typeSV;
+	int32_t carPh;
+	int32_t psRan;
+	int32_t freqD;
+	uint16_t snr;
+	uint16_t azim;
+	uint16_t elev;
+};
+#pragma pack(pop)
 
 /* calculate checksum for ERB protocol ---------------------------------------*/
 static void calculatesum(const char *buff, int len, unsigned char *cka,
