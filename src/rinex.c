@@ -979,10 +979,10 @@ static int readrnxobsb(FILE *fp, const char *opt, double ver,
             if ((nsat=decode_obsepoch(fp,buff,ver,&time,flag,sats))<=0 && (*flag != 5)) {
                 continue;
             }
-        }
-        if (*flag == 5) {
-            data[0].eventime = time;
-            return 0;
+            if (*flag == 5) {
+                data[0].eventime = time;
+                return 0;
+            }
         }
         else if (*flag<=2||*flag==6) {
             
