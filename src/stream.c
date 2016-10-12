@@ -1905,7 +1905,11 @@ extern int stropen(stream_t *stream, int type, int mode, const char *path)
         default: stream->state=0; return 1;
     }
     stream->state=!stream->port?-1:1;
-    return stream->port!=NULL;
+    if (stream->type == STR_SERIAL) {
+        return 1;
+    } else {
+        return stream->port!=NULL;
+    }
 }
 /* close stream ----------------------------------------------------------------
 * close stream
@@ -1978,7 +1982,15 @@ extern int strread(stream_t *stream, unsigned char *buff, int n)
     
     tracet(4,"strread: n=%d\n",n);
     
-    if (!(stream->mode&STR_MODE_R)||!stream->port) return 0;
+    if (!(stream->mode&STR_MODE_R)||!stream->port) {
+        /* Try to open serial port */
+        if (stream->type == STR_SERIAL)
+        {
+            stream->port=openserial(stream->path,stream->mode,stream->msg);
+            stream->state=!stream->port?-1:1;
+        }
+        return 0;
+    }
     
     strlock(stream);
     
