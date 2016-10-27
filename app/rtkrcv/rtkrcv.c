@@ -118,6 +118,7 @@ static const char *helptxt[]={
     " save [file]      : save options to file",
     " log [file|off]   : start/stop log to file",
     " help|? [path]    : print help",
+    " setposmode [val] : change position mode",
     " exit             : exit and logout console",
     " shutdown         : shutdown rtk server",
     " !command [arg...]: execute command in shell",
@@ -1216,13 +1217,48 @@ static int cmd_exec(const char *cmd, vt_t *vt)
     }
     return ret;
 }
+/* setposmode command -------------------------------------------------------*/
+static void cmd_setposmode(char **args, int narg, vt_t *vt)
+{
+    opt_t *opt;
+    char buff[MAXSTR];
+
+    trace(3,"cmd_setposmode:\n");
+
+    if ((svr.rtk.opt.mode!=PMODE_KINEMA)||(svr.rtk.opt.mode!=PMODE_STATIC)) {
+        vt_printf(vt,"forbidden operation in current mode \n");
+        return;
+    }
+    opt=searchopt("posmode",sysopts);
+
+    if (narg<2) {
+        vt_printf(vt,"%s",opt->name);
+        if (*opt->comment) vt_printf(vt," (%s)",opt->comment);
+        vt_printf(vt,": ");
+        if (!vt_gets(vt,buff,sizeof(buff))||vt->brk) return;
+    }
+    else strcpy(buff,args[2]);
+
+    chop(buff);
+    if (!str2opt(opt,buff)) {
+        vt_printf(vt,"invalid option value: %s %s\n",opt->name,buff);
+        return;
+    }
+
+    rtksvrlock(&svr);
+    getsysopts(&svr.rtk.opt, NULL, NULL);
+    rtksvrunlock(&svr);
+
+    vt_printf(vt,"mode changed to: %s\n", buff);
+    return;
+}
 /* command interpreter -------------------------------------------------------*/
 static void cmdshell(vt_t *vt)
 {
     const char *cmds[]={
         "start","stop","restart","solution","status","satellite","observ",
         "navidata","stream","error","option","set","load","save","log","help",
-        "?","exit","shutdown",""
+        "?", "setposmode","exit","shutdown",""
     };
     int i,j,narg;
     char buff[MAXCMD],*args[MAXARG],*p;
@@ -1252,25 +1288,26 @@ static void cmdshell(vt_t *vt)
             if (strstr(cmds[i],args[0])==cmds[i]) j=i;
         }
         switch (j) {
-            case  0: cmd_start    (args,narg,vt); break;
-            case  1: cmd_stop     (args,narg,vt); break;
-            case  2: cmd_restart  (args,narg,vt); break;
-            case  3: cmd_solution (args,narg,vt); break;
-            case  4: cmd_status   (args,narg,vt); break;
-            case  5: cmd_satellite(args,narg,vt); break;
-            case  6: cmd_observ   (args,narg,vt); break;
-            case  7: cmd_navidata (args,narg,vt); break;
-            case  8: cmd_stream   (args,narg,vt); break;
-            case  9: cmd_error    (args,narg,vt); break;
-            case 10: cmd_option   (args,narg,vt); break;
-            case 11: cmd_set      (args,narg,vt); break;
-            case 12: cmd_load     (args,narg,vt); break;
-            case 13: cmd_save     (args,narg,vt); break;
-            case 14: cmd_log      (args,narg,vt); break;
-            case 15: cmd_help     (args,narg,vt); break;
-            case 16: cmd_help     (args,narg,vt); break;
-            case 17: if (vt->type) return;        break;
-            case 18:              /* shutdown */
+            case  0: cmd_start     (args,narg,vt); break;
+            case  1: cmd_stop      (args,narg,vt); break;
+            case  2: cmd_restart   (args,narg,vt); break;
+            case  3: cmd_solution  (args,narg,vt); break;
+            case  4: cmd_status    (args,narg,vt); break;
+            case  5: cmd_satellite (args,narg,vt); break;
+            case  6: cmd_observ    (args,narg,vt); break;
+            case  7: cmd_navidata  (args,narg,vt); break;
+            case  8: cmd_stream    (args,narg,vt); break;
+            case  9: cmd_error     (args,narg,vt); break;
+            case 10: cmd_option    (args,narg,vt); break;
+            case 11: cmd_set       (args,narg,vt); break;
+            case 12: cmd_load      (args,narg,vt); break;
+            case 13: cmd_save      (args,narg,vt); break;
+            case 14: cmd_log       (args,narg,vt); break;
+            case 15: cmd_help      (args,narg,vt); break;
+            case 16: cmd_help      (args,narg,vt); break;
+            case 17: cmd_setposmode(args,narg,vt); break;
+            case 18: if (vt->type) return;         break;
+            case 19:              /* shutdown */
                 vt_printf(vt,"shutdown %s process ? (y/n): ",PRGNAME);
                 if (!vt_gets(vt,buff,sizeof(buff))||vt->brk) continue;
                 if (toupper((int)buff[0])=='Y') intflg=1;
