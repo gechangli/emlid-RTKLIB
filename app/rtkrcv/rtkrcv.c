@@ -867,7 +867,7 @@ static void prstream(vt_t *vt)
     };
     const char *fmt[]={"rtcm2","rtcm3","oem4","oem3","ubx","ss2","hemis","skytreq",
                        "gw10","javad","nvs","binex","rt17","sbf","cmr","","","sp3",""};
-    const char *sol[]={"llh","xyz","enu","nmea","stat","-"};
+    const char *sol[]={"llh","xyz","enu","nmea","stat","gsif","erb","-"};
     stream_t stream[9];
     int i,format[9]={0};
     
