@@ -478,6 +478,26 @@ static int stateserial(serial_t *serial)
 {
     return !serial?0:(serial->error?-1:2);
 }
+/* check if file descriptor is valid -----------------------------------------*/
+static int checkfd(stream_t *stream)
+{
+    struct stat sb;
+    serial_t *serial;
+    int type = stream->type;
+    switch (type) {
+        case STR_SERIAL : serial=(serial_t *)stream->port;break;
+        default         : return 1;
+    }
+
+    fstat(serial->dev, &sb);
+    if (sb.st_nlink == 0) {
+        /* no hard links */
+        closeserial(serial);
+        stream->port=NULL;
+        return 0;
+    }
+    return 1;
+}
 /* open file -----------------------------------------------------------------*/
 static int openfile_(file_t *file, gtime_t time, char *msg)
 {    
@@ -1982,7 +2002,7 @@ extern int strread(stream_t *stream, unsigned char *buff, int n)
     
     tracet(4,"strread: n=%d\n",n);
     
-    if (!(stream->mode&STR_MODE_R)||!stream->port) {
+    if (!(stream->mode&STR_MODE_R)||!stream->port||!checkfd(stream)) {
         /* Try to open serial port */
         if (stream->type == STR_SERIAL)
         {
@@ -2032,7 +2052,7 @@ extern int strwrite(stream_t *stream, unsigned char *buff, int n)
     
     tracet(3,"strwrite: n=%d\n",n);
     
-    if (!(stream->mode&STR_MODE_W)||!stream->port) {
+    if (!(stream->mode&STR_MODE_W)||!stream->port||!checkfd(stream)) {
         /* Try to open serial port */
         if (stream->type == STR_SERIAL)
         {
