@@ -2032,7 +2032,15 @@ extern int strwrite(stream_t *stream, unsigned char *buff, int n)
     
     tracet(3,"strwrite: n=%d\n",n);
     
-    if (!(stream->mode&STR_MODE_W)||!stream->port) return 0;
+    if (!(stream->mode&STR_MODE_W)||!stream->port) {
+        /* Try to open serial port */
+        if (stream->type == STR_SERIAL)
+        {
+            stream->port=openserial(stream->path,stream->mode,stream->msg);
+            stream->state=!stream->port?-1:1;
+        }
+        return 0;
+    }
     
     strlock(stream);
     
