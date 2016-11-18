@@ -692,12 +692,6 @@ static int decode_obsepoch(FILE *fp, char *buff, double ver, gtime_t *time,
         }
 
         if ((n=(int)str2num(buff,32,3))<=0) return 0;
-
-        if (*flag == 5) {
-            str2time(buff,1,28,time);
-        }
-
-        if ((n=(int)str2num(buff,32,3))<=0) return 0;
         
         if (3<=*flag&&*flag<=5) return n;
         

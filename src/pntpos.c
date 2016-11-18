@@ -432,6 +432,7 @@ static int raim_fde(const obsd_t *obs, int n, const double *rs,
             resp[j]=resp_e[k++];
         }
         stat=1;
+        sol_e.eventime = sol->eventime;
         *sol=sol_e;
         sat=obs[i].sat;
         rms=rms_e;
