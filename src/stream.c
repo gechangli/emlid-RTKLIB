@@ -488,12 +488,12 @@ static int checkfd(stream_t *stream)
         case STR_SERIAL : serial=(serial_t *)stream->port;break;
         default         : return 1;
     }
-
     fstat(serial->dev, &sb);
     if (sb.st_nlink == 0) {
         /* no hard links */
         closeserial(serial);
         stream->port=NULL;
+        stream->state=-1;
         return 0;
     }
     return 1;
@@ -2002,14 +2002,14 @@ extern int strread(stream_t *stream, unsigned char *buff, int n)
     
     tracet(4,"strread: n=%d\n",n);
     
-    if (!(stream->mode&STR_MODE_R)||!stream->port) return 0;
-    if (!checkfd(stream)) {
+    if (!(stream->mode&STR_MODE_R)||stream->state==0) return 0;
+    if (stream->state == -1) {
         /* Try to open serial port */
-        if (stream->type == STR_SERIAL)
-        {
-            stream->port=openserial(stream->path,stream->mode,stream->msg);
-            stream->state=!stream->port?-1:1;
-        }
+        stream->port=openserial(stream->path,stream->mode,stream->msg);
+        stream->state=!stream->port?-1:1;
+        return 0;
+    }
+    if (!checkfd(stream)) {
         return 0;
     }
     
@@ -2053,17 +2053,17 @@ extern int strwrite(stream_t *stream, unsigned char *buff, int n)
     
     tracet(3,"strwrite: n=%d\n",n);
     
-    if (!(stream->mode&STR_MODE_W)||!stream->port) return 0;
-    if (!checkfd(stream)) {
+    if (!(stream->mode&STR_MODE_W) || stream->state == 0) return 0;
+    if (stream->state == -1) {
         /* Try to open serial port */
-        if (stream->type == STR_SERIAL)
-        {
-            stream->port=openserial(stream->path,stream->mode,stream->msg);
-            stream->state=!stream->port?-1:1;
-        }
+        stream->port=openserial(stream->path,stream->mode,stream->msg);
+        stream->state=!stream->port?-1:1;
         return 0;
     }
-    
+    if (!checkfd(stream)) {
+        return 0;
+    }
+
     strlock(stream);
     
     switch (stream->type) {
