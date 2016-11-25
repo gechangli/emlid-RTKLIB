@@ -488,12 +488,12 @@ static int checkfd(stream_t *stream)
         case STR_SERIAL : serial=(serial_t *)stream->port;break;
         default         : return 1;
     }
-
     fstat(serial->dev, &sb);
     if (sb.st_nlink == 0) {
         /* no hard links */
         closeserial(serial);
         stream->port=NULL;
+        stream->state=-1;
         return 0;
     }
     return 1;
@@ -933,10 +933,18 @@ static int recv_nb(socket_t sock, unsigned char *buff, int n)
 {
     struct timeval tv={0};
     fd_set rs;
+    int recv_return_code = 0;
     
     FD_ZERO(&rs); FD_SET(sock,&rs);
     if (!select(sock+1,&rs,NULL,NULL,&tv)) return 0;
-    return recv(sock,(char *)buff,n,0);
+
+    recv_return_code = recv(sock,(char *)buff,n,0);
+
+    if (recv_return_code == 0) {
+        return -1;
+    } else {
+        return recv_return_code;
+    }
 }
 /* non-block send ------------------------------------------------------------*/
 static int send_nb(socket_t sock, unsigned char *buff, int n)
@@ -2002,13 +2010,14 @@ extern int strread(stream_t *stream, unsigned char *buff, int n)
     
     tracet(4,"strread: n=%d\n",n);
     
-    if (!(stream->mode&STR_MODE_R)||!stream->port||!checkfd(stream)) {
+    if (!(stream->mode&STR_MODE_R)||stream->state==0) return 0;
+    if (stream->state == -1) {
         /* Try to open serial port */
-        if (stream->type == STR_SERIAL)
-        {
-            stream->port=openserial(stream->path,stream->mode,stream->msg);
-            stream->state=!stream->port?-1:1;
-        }
+        stream->port=openserial(stream->path,stream->mode,stream->msg);
+        stream->state=!stream->port?-1:1;
+        return 0;
+    }
+    if (!checkfd(stream)) {
         return 0;
     }
     
@@ -2052,16 +2061,17 @@ extern int strwrite(stream_t *stream, unsigned char *buff, int n)
     
     tracet(3,"strwrite: n=%d\n",n);
     
-    if (!(stream->mode&STR_MODE_W)||!stream->port||!checkfd(stream)) {
+    if (!(stream->mode&STR_MODE_W) || stream->state == 0) return 0;
+    if (stream->state == -1) {
         /* Try to open serial port */
-        if (stream->type == STR_SERIAL)
-        {
-            stream->port=openserial(stream->path,stream->mode,stream->msg);
-            stream->state=!stream->port?-1:1;
-        }
+        stream->port=openserial(stream->path,stream->mode,stream->msg);
+        stream->state=!stream->port?-1:1;
         return 0;
     }
-    
+    if (!checkfd(stream)) {
+        return 0;
+    }
+
     strlock(stream);
     
     switch (stream->type) {
