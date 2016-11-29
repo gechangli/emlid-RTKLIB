@@ -2,11 +2,14 @@ object MainForm: TMainForm
   Left = 0
   Top = 0
   BorderIcons = [biSystemMenu, biMinimize]
-  BorderStyle = bsSingle
   Caption = 'RTKGET'
-  ClientHeight = 324
-  ClientWidth = 444
-  Color = clBtnFace
+  ClientHeight = 335
+  ClientWidth = 464
+  Color = clWhite
+  Constraints.MaxHeight = 373
+  Constraints.MaxWidth = 480
+  Constraints.MinHeight = 373
+  Constraints.MinWidth = 480
   DoubleBuffered = True
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -14,26 +17,35 @@ object MainForm: TMainForm
   Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
+  Scaled = False
   OnClose = FormClose
   OnCreate = FormCreate
   OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 13
   object Panel2: TPanel
-    Left = 0
+    AlignWithMargins = True
+    Left = 1
     Top = 0
-    Width = 444
-    Height = 225
+    Width = 462
+    Height = 226
+    Margins.Left = 1
+    Margins.Top = 0
+    Margins.Right = 1
+    Margins.Bottom = 0
     Align = alTop
     BevelInner = bvRaised
     BevelOuter = bvLowered
     TabOrder = 0
+    ExplicitWidth = 463
     object Label6: TLabel
       Left = 12
       Top = 264
       Width = 71
       Height = 13
       Caption = 'Local Directory'
+      Color = clWhite
+      ParentColor = False
     end
     object LabelSta: TLabel
       Left = 320
@@ -203,10 +215,10 @@ object MainForm: TMainForm
       end
     end
     object BtnDir: TButton
-      Left = 420
-      Top = 201
-      Width = 21
-      Height = 21
+      Left = 433
+      Top = 200
+      Width = 27
+      Height = 23
       Caption = '...'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
@@ -239,10 +251,10 @@ object MainForm: TMainForm
       OnChange = DataTypeChange
     end
     object BtnStas: TButton
-      Left = 419
-      Top = 2
-      Width = 21
-      Height = 21
+      Left = 433
+      Top = 1
+      Width = 27
+      Height = 23
       Hint = 'Load Station List'
       Caption = '...'
       Font.Charset = DEFAULT_CHARSET
@@ -266,9 +278,9 @@ object MainForm: TMainForm
       OnClick = LocalDirClick
     end
     object StaList: TListBox
-      Left = 318
+      Left = 319
       Top = 24
-      Width = 122
+      Width = 140
       Height = 174
       Hint = 'Station List'
       ItemHeight = 13
@@ -348,10 +360,10 @@ object MainForm: TMainForm
       OnChange = DataTypeChange
     end
     object BtnAll: TButton
-      Left = 399
-      Top = 2
-      Width = 21
-      Height = 21
+      Left = 407
+      Top = 1
+      Width = 27
+      Height = 23
       Hint = 'Select/Clear All'
       Caption = 'A'
       Font.Charset = DEFAULT_CHARSET
@@ -366,9 +378,9 @@ object MainForm: TMainForm
       OnClick = BtnAllClick
     end
     object Dir: TComboBox
-      Left = 118
+      Left = 123
       Top = 201
-      Width = 302
+      Width = 309
       Height = 21
       DropDownCount = 20
       TabOrder = 7
@@ -376,75 +388,87 @@ object MainForm: TMainForm
     end
   end
   object Panel3: TPanel
+    AlignWithMargins = True
     Left = 0
-    Top = 297
-    Width = 444
-    Height = 27
+    Top = 302
+    Width = 464
+    Height = 33
+    Margins.Left = 0
+    Margins.Top = 1
+    Margins.Right = 0
+    Margins.Bottom = 0
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 1
     ExplicitTop = 301
-    object BtnOpts: TButton
-      Left = 145
-      Top = 0
-      Width = 73
-      Height = 27
-      Caption = '&Options...'
-      TabOrder = 2
-      OnClick = BtnOptsClick
+    ExplicitWidth = 465
+    ExplicitHeight = 32
+    object BtnFile: TButton
+      Left = 1
+      Top = 1
+      Width = 77
+      Height = 29
+      Caption = '&Files...'
+      TabOrder = 0
+      OnClick = BtnFileClick
     end
     object BtnLog: TButton
-      Left = 73
-      Top = 0
-      Width = 71
-      Height = 27
+      Left = 78
+      Top = 1
+      Width = 77
+      Height = 29
       Caption = '&Log...'
       TabOrder = 1
       OnClick = BtnLogClick
     end
+    object BtnOpts: TButton
+      Left = 155
+      Top = 1
+      Width = 77
+      Height = 29
+      Caption = '&Options...'
+      TabOrder = 2
+      OnClick = BtnOptsClick
+    end
+    object BtnTest: TButton
+      Left = 232
+      Top = 1
+      Width = 77
+      Height = 29
+      Caption = '&Test...'
+      TabOrder = 3
+      OnClick = BtnTestClick
+    end
     object BtnDownload: TButton
-      Left = 294
-      Top = 0
-      Width = 74
-      Height = 27
+      Left = 309
+      Top = 1
+      Width = 77
+      Height = 29
       Caption = '&Download'
       TabOrder = 4
       OnClick = BtnDownloadClick
     end
     object BtnExit: TButton
-      Left = 369
-      Top = 0
-      Width = 74
-      Height = 27
+      Left = 386
+      Top = 1
+      Width = 77
+      Height = 29
       Caption = '&Exit'
       TabOrder = 5
       OnClick = BtnExitClick
     end
-    object BtnFile: TButton
-      Left = 1
-      Top = 0
-      Width = 71
-      Height = 27
-      Caption = '&Files...'
-      TabOrder = 0
-      OnClick = BtnFileClick
-    end
-    object BtnTest: TButton
-      Left = 219
-      Top = 0
-      Width = 74
-      Height = 27
-      Caption = '&Test...'
-      TabOrder = 3
-      OnClick = BtnTestClick
-    end
   end
   object Msg1: TPanel
-    Left = 0
-    Top = 225
-    Width = 444
-    Height = 24
-    Align = alBottom
+    AlignWithMargins = True
+    Left = 1
+    Top = 226
+    Width = 462
+    Height = 25
+    Margins.Left = 1
+    Margins.Top = 0
+    Margins.Right = 1
+    Margins.Bottom = 0
+    Align = alTop
     BevelInner = bvRaised
     BevelOuter = bvLowered
     DoubleBuffered = True
@@ -458,12 +482,16 @@ object MainForm: TMainForm
     ParentShowHint = False
     ShowHint = True
     TabOrder = 2
-    ExplicitTop = 223
+    ExplicitWidth = 463
     object MsgLabel1: TLabel
       Left = 2
       Top = 2
-      Width = 440
-      Height = 20
+      Width = 458
+      Height = 21
+      Margins.Left = 1
+      Margins.Top = 1
+      Margins.Right = 1
+      Margins.Bottom = 1
       Align = alClient
       Alignment = taCenter
       Layout = tlCenter
@@ -472,13 +500,19 @@ object MainForm: TMainForm
     end
   end
   object Msg3: TPanel
-    Left = 0
-    Top = 273
-    Width = 444
-    Height = 24
-    Align = alBottom
+    AlignWithMargins = True
+    Left = 1
+    Top = 276
+    Width = 462
+    Height = 25
+    Margins.Left = 1
+    Margins.Top = 0
+    Margins.Right = 1
+    Margins.Bottom = 0
+    Align = alTop
     BevelInner = bvRaised
     BevelOuter = bvLowered
+    Color = clWhite
     DoubleBuffered = True
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clGray
@@ -489,23 +523,27 @@ object MainForm: TMainForm
     ParentDoubleBuffered = False
     ParentFont = False
     TabOrder = 3
-    ExplicitTop = 271
+    ExplicitWidth = 463
     object MsgLabel3: TLabel
-      Left = 2
+      Left = 25
       Top = 2
-      Width = 440
-      Height = 20
+      Width = 412
+      Height = 21
       Align = alClient
       Alignment = taCenter
+      Color = clWhite
+      ParentColor = False
       Layout = tlCenter
+      ExplicitLeft = 26
       ExplicitWidth = 3
       ExplicitHeight = 13
     end
     object BtnTray: TSpeedButton
-      Left = 422
+      Left = 437
       Top = 2
-      Width = 18
-      Height = 19
+      Width = 23
+      Height = 21
+      Align = alRight
       Flat = True
       Glyph.Data = {
         3E020000424D3E0200000000000036000000280000000D0000000D0000000100
@@ -528,23 +566,30 @@ object MainForm: TMainForm
         FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
         FF00}
       OnClick = BtnTrayClick
+      ExplicitLeft = 436
     end
     object BtnHelp: TSpeedButton
-      Left = 3
+      Left = 2
       Top = 2
-      Width = 14
-      Height = 19
+      Width = 23
+      Height = 21
+      Align = alLeft
       Caption = '?'
       Flat = True
       OnClick = BtnHelpClick
     end
   end
   object Msg2: TPanel
-    Left = 0
-    Top = 249
-    Width = 444
-    Height = 24
-    Align = alBottom
+    AlignWithMargins = True
+    Left = 1
+    Top = 251
+    Width = 462
+    Height = 25
+    Margins.Left = 1
+    Margins.Top = 0
+    Margins.Right = 1
+    Margins.Bottom = 0
+    Align = alTop
     BevelInner = bvRaised
     BevelOuter = bvLowered
     DoubleBuffered = True
@@ -558,9 +603,9 @@ object MainForm: TMainForm
     ParentShowHint = False
     ShowHint = True
     TabOrder = 4
-    ExplicitTop = 247
+    ExplicitWidth = 463
     object Image1: TImage
-      Left = 425
+      Left = 444
       Top = 6
       Width = 12
       Height = 12
@@ -577,7 +622,7 @@ object MainForm: TMainForm
       Visible = False
     end
     object Image2: TImage
-      Left = 425
+      Left = 444
       Top = 6
       Width = 12
       Height = 12
@@ -594,7 +639,7 @@ object MainForm: TMainForm
       Visible = False
     end
     object Image3: TImage
-      Left = 425
+      Left = 444
       Top = 6
       Width = 12
       Height = 12
@@ -611,7 +656,7 @@ object MainForm: TMainForm
       Visible = False
     end
     object Image4: TImage
-      Left = 425
+      Left = 444
       Top = 6
       Width = 12
       Height = 12
@@ -628,7 +673,7 @@ object MainForm: TMainForm
       Visible = False
     end
     object Image5: TImage
-      Left = 425
+      Left = 444
       Top = 6
       Width = 12
       Height = 12
@@ -645,7 +690,7 @@ object MainForm: TMainForm
       Visible = False
     end
     object Image6: TImage
-      Left = 425
+      Left = 444
       Top = 6
       Width = 12
       Height = 12
@@ -662,7 +707,7 @@ object MainForm: TMainForm
       Visible = False
     end
     object Image7: TImage
-      Left = 425
+      Left = 444
       Top = 6
       Width = 12
       Height = 12
@@ -679,7 +724,7 @@ object MainForm: TMainForm
       Visible = False
     end
     object Image8: TImage
-      Left = 425
+      Left = 444
       Top = 6
       Width = 12
       Height = 12
@@ -698,8 +743,8 @@ object MainForm: TMainForm
     object MsgLabel2: TLabel
       Left = 2
       Top = 2
-      Width = 440
-      Height = 20
+      Width = 458
+      Height = 21
       Align = alClient
       Alignment = taCenter
       Layout = tlCenter

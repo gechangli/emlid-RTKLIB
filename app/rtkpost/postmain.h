@@ -28,8 +28,6 @@ __published:
 	TPanel *Panel4;
 	TPanel *Panel5;
 	TPanel *Message;
-	TButton *BtnToKML;
-	TButton *BtnExit;
 	TButton *BtnInputFile1;
 	TButton *BtnInputFile3;
 	TButton *BtnInputFile2;
@@ -95,6 +93,9 @@ __published:
 	TBitBtn *BtnExec;
 	TBitBtn *BtnAbort;
 	TBitBtn *BtnPlot;
+	TBitBtn *BtnToKML;
+	TBitBtn *BtnExit;
+	TLabel *Debug;
 	
 	void __fastcall FormCreate         (TObject *Sender);
 	void __fastcall FormShow           (TObject *Sender);
@@ -146,6 +147,13 @@ __published:
 	void __fastcall BtnInputFile6Click(TObject *Sender);
 	void __fastcall BtnInputView6Click(TObject *Sender);
 	void __fastcall BtnAbortClick(TObject *Sender);
+	void __fastcall Panel4Resize(TObject *Sender);
+	void __fastcall Panel5Resize(TObject *Sender);
+	void __fastcall Panel2Resize(TObject *Sender);
+	void __fastcall TimeY1KeyDown(TObject *Sender, WORD &Key, TShiftState Shift);
+	void __fastcall TimeH1KeyDown(TObject *Sender, WORD &Key, TShiftState Shift);
+	void __fastcall TimeY2KeyDown(TObject *Sender, WORD &Key, TShiftState Shift);
+	void __fastcall TimeH2KeyDown(TObject *Sender, WORD &Key, TShiftState Shift);
 
 private:
 	void __fastcall DropFiles          (TWMDropFiles msg); // for files drop
@@ -182,7 +190,7 @@ public:
 	
 	// options
 	int PosMode,Freq,Solution,DynamicModel,IonoOpt,TropOpt,RcvBiasEst;
-	int ARIter,NumIter,CodeSmooth,TideCorr;
+	int ARIter,MinFixSats,MinHoldSats,ARFilter,NumIter,CodeSmooth,TideCorr;
 	int OutCntResetAmb,FixCntHoldAmb,LockCntFixAmb,RovPosType,RefPosType;
 	int SatEphem,NavSys;
 	int RovAntPcv,RefAntPcv,AmbRes,GloAmbRes,BdsAmbRes;
@@ -197,7 +205,7 @@ public:
 	double SatClkStab,RovAntE,RovAntN,RovAntU,RefAntE,RefAntN,RefAntU;
 	double PrNoise1,PrNoise2,PrNoise3,PrNoise4,PrNoise5;
 	double ValidThresAR,ElMaskAR,ElMaskHold,SlipThres;
-	double ThresAR2,ThresAR3;
+	double ThresAR2,ThresAR3,MaxPosVarAR;
 	double RovPos[3],RefPos[3],BaseLine[2];
 	double MaxSolStd;
 	snrmask_t SnrMask;

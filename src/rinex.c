@@ -83,6 +83,8 @@
 *           2014/12/07 1.24 add read rinex option -SYS=...
 *           2016/07/01 1.25 support RINEX 3.03
 *                           support IRNSS
+*           2016/09/17 1.26 fix bug on fit interval in QZSS RINEX nav
+*                           URA output value complient to RINEX 3.03
 *-----------------------------------------------------------------------------*/
 #include "rtklib.h"
 
@@ -111,6 +113,10 @@ static const char frqcodes[]="1256789"; /* frequency codes */
 static const double ura_eph[]={         /* ura values (ref [3] 20.3.3.3.1.1) */
     2.4,3.4,4.85,6.85,9.65,13.65,24.0,48.0,96.0,192.0,384.0,768.0,1536.0,
     3072.0,6144.0,0.0
+};
+static const double ura_nominal[]={     /* ura nominal values */
+    2.0,2.8,4.0,5.7,8.0,11.3,16.0,32.0,64.0,128.0,256.0,512.0,1024.0,
+    2048.0,4096.0,8192.0
 };
 /* type definition -----------------------------------------------------------*/
 typedef struct {                        /* signal index type */
@@ -175,10 +181,10 @@ static int sat2code(int sat, char *code)
     }
     return 1;
 }
-/* ura index to ura value (m) ------------------------------------------------*/
+/* ura index to ura nominal value (m) ----------------------------------------*/
 static double uravalue(int sva)
 {
-    return 0<=sva&&sva<15?ura_eph[sva]:32767.0;
+    return 0<=sva&&sva<15?ura_nominal[sva]:8192.0;
 }
 /* ura value (m) to ura index ------------------------------------------------*/
 static int uraindex(double value)
@@ -710,6 +716,7 @@ static int decode_obsdata(FILE *fp, char *buff, double ver, int mask,
     sigind_t *ind;
     double val[MAXOBSTYPE]={0};
     unsigned char lli[MAXOBSTYPE]={0};
+    unsigned char qual[MAXOBSTYPE]={0};
     char satid[8]="";
     int i,j,n,m,stat=1,p[MAXOBSTYPE],k[16],l[16];
     
@@ -744,13 +751,14 @@ static int decode_obsdata(FILE *fp, char *buff, double ver, int mask,
         if (stat) {
             val[i]=str2num(buff,j,14)+ind->shift[i];
             lli[i]=(unsigned char)str2num(buff,j+14,1)&3;
+            qual[i]=(unsigned char)str2num(buff,j+15,1);
         }
     }
     if (!stat) return 0;
     
     for (i=0;i<NFREQ+NEXOBS;i++) {
         obs->P[i]=obs->L[i]=0.0; obs->D[i]=0.0f;
-        obs->SNR[i]=obs->LLI[i]=obs->code[i]=0;
+        obs->SNR[i]=obs->LLI[i]=obs->qualL[i]=obs->qualP[i]=obs->code[i]=0;
     }
     /* assign position in obs data */
     for (i=n=m=0;i<ind->n;i++) {
@@ -802,8 +810,14 @@ static int decode_obsdata(FILE *fp, char *buff, double ver, int mask,
     for (i=0;i<ind->n;i++) {
         if (p[i]<0||val[i]==0.0) continue;
         switch (ind->type[i]) {
-            case 0: obs->P[p[i]]=val[i]; obs->code[p[i]]=ind->code[i]; break;
-            case 1: obs->L[p[i]]=val[i]; obs->LLI [p[i]]=lli[i];       break;
+            case 0: obs->P[p[i]]=val[i];
+                    obs->code[p[i]]=ind->code[i];
+                    obs->qualP[p[i]]=qual[i];
+                    break;
+            case 1: obs->L[p[i]]=val[i];
+                    obs->LLI[p[i]]=lli[i];
+                    obs->qualL[p[i]]=qual[i];
+                    break;
             case 2: obs->D[p[i]]=(float)val[i];                        break;
             case 3: obs->SNR[p[i]]=(unsigned char)(val[i]*4.0+0.5);    break;
         }
@@ -1090,7 +1104,12 @@ static int decode_eph(double ver, int sat, gtime_t toc, const double *data,
         eph->flag=(int)data[22];      /* GPS: L2 P data flag */
         
         eph->tgd[0]=   data[25];      /* TGD */
-        eph->fit   =   data[28];      /* fit interval */
+        if (sys==SYS_GPS) {
+            eph->fit=data[28];        /* fit interval (h) */
+        }
+        else {
+            eph->fit=data[28]==0.0?1.0:2.0; /* fit interval (0:1h,1:>2h) */
+        }
     }
     else if (sys==SYS_GAL) { /* GAL ver.3 */
         eph->iode=(int)data[ 3];      /* IODnav */
@@ -1979,11 +1998,12 @@ extern int outrnxobsh(FILE *fp, const rnxopt_t *opt, const nav_t *nav)
     return fprintf(fp,"%-60.60s%-20s\n","","END OF HEADER")!=EOF;
 }
 /* output obs data field -----------------------------------------------------*/
-static void outrnxobsf(FILE *fp, double obs, int lli)
+static void outrnxobsf(FILE *fp, double obs, int lli, int qual)
 {
     if (obs==0.0||obs<=-1E9||obs>=1E9) fprintf(fp,"              ");
     else fprintf(fp,"%14.3f",obs);
-    if (lli<=0) fprintf(fp,"  "); else fprintf(fp,"%1.1d ",lli);
+    if (lli<=0) fprintf(fp," "); else fprintf(fp,"%1.1d",lli);
+    if (qual<=0) fprintf(fp," "); else fprintf(fp,"%1.1x",qual);
 }
 /* search obs data index -----------------------------------------------------*/
 static int obsindex(double ver, int sys, const unsigned char *code,
@@ -2145,16 +2165,16 @@ extern int outrnxobsb(FILE *fp, const rnxopt_t *opt, const obsd_t *obs, int n,
             /* search obs data index */
             if ((k=obsindex(opt->rnxver,sys,obs[ind[i]].code,opt->tobs[m][j],
                             mask))<0) {
-                outrnxobsf(fp,0.0,-1);
+                outrnxobsf(fp,0.0,-1,-1);
                 continue;
             }
             /* output field */
             switch (opt->tobs[m][j][0]) {
                 case 'C':
-                case 'P': outrnxobsf(fp,obs[ind[i]].P[k],-1); break;
-                case 'L': outrnxobsf(fp,obs[ind[i]].L[k],obs[ind[i]].LLI[k]); break;
-                case 'D': outrnxobsf(fp,obs[ind[i]].D[k],-1); break;
-                case 'S': outrnxobsf(fp,obs[ind[i]].SNR[k]*0.25,-1); break;
+                case 'P': outrnxobsf(fp,obs[ind[i]].P[k],-1,obs[ind[i]].qualP[k]); break;
+                case 'L': outrnxobsf(fp,obs[ind[i]].L[k],obs[ind[i]].LLI[k],obs[ind[i]].qualL[k]); break;
+                case 'D': outrnxobsf(fp,obs[ind[i]].D[k],-1,-1); break;
+                case 'S': outrnxobsf(fp,obs[ind[i]].SNR[k]*0.25,-1,-1); break;
             }
         }
         if (opt->rnxver>2.99&&fprintf(fp,"\n")==EOF) return 0;
@@ -2402,8 +2422,11 @@ extern int outrnxnavb(FILE *fp, const rnxopt_t *opt, const eph_t *eph)
     }
     outnavf(fp,ttr+(week-eph->week)*604800.0);
     
-    if (sys==SYS_GPS||sys==SYS_QZS) {
+    if (sys==SYS_GPS) {
         outnavf(fp,eph->fit);
+    }
+    else if (sys==SYS_QZS) {
+        outnavf(fp,eph->fit>2.0?1.0:0.0);
     }
     else if (sys==SYS_CMP) {
         outnavf(fp,eph->iodc); /* AODC */

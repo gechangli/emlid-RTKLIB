@@ -4,9 +4,9 @@ object MapAreaDialog: TMapAreaDialog
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'Map Image'
-  ClientHeight = 120
+  ClientHeight = 122
   ClientWidth = 341
-  Color = clBtnFace
+  Color = clWhite
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
@@ -21,7 +21,7 @@ object MapAreaDialog: TMapAreaDialog
     Left = 256
     Top = 92
     Width = 83
-    Height = 27
+    Height = 29
     Caption = '&Close'
     TabOrder = 0
     OnClick = BtnCloseClick
@@ -30,7 +30,7 @@ object MapAreaDialog: TMapAreaDialog
     Left = 86
     Top = 92
     Width = 83
-    Height = 27
+    Height = 29
     Caption = '&Center'
     ModalResult = 1
     TabOrder = 2
@@ -40,7 +40,7 @@ object MapAreaDialog: TMapAreaDialog
     Left = 2
     Top = 92
     Width = 83
-    Height = 27
+    Height = 29
     Caption = '&Save Tag'
     ModalResult = 1
     TabOrder = 1
@@ -50,7 +50,7 @@ object MapAreaDialog: TMapAreaDialog
     Left = 172
     Top = 92
     Width = 83
-    Height = 27
+    Height = 29
     Caption = '&Update'
     TabOrder = 3
     OnClick = BtnUpdateClick
@@ -125,12 +125,13 @@ object MapAreaDialog: TMapAreaDialog
       OEMConvert = True
       TabOrder = 0
       Text = '0.000'
+      OnKeyDown = ScaleXKeyDown
     end
     object ScaleXUpDown: TUpDown
       Left = 219
-      Top = 30
-      Width = 17
-      Height = 21
+      Top = 31
+      Width = 21
+      Height = 23
       Min = -32000
       Max = 32000
       TabOrder = 1
@@ -146,12 +147,13 @@ object MapAreaDialog: TMapAreaDialog
       OEMConvert = True
       TabOrder = 2
       Text = '0.000'
+      OnKeyDown = ScaleYKeyDown
     end
     object ScaleYUpDown: TUpDown
       Left = 315
-      Top = 30
-      Width = 17
-      Height = 21
+      Top = 31
+      Width = 21
+      Height = 23
       Min = -32000
       Max = 32000
       TabOrder = 3
@@ -167,12 +169,13 @@ object MapAreaDialog: TMapAreaDialog
       OEMConvert = True
       TabOrder = 4
       Text = '0.000000'
+      OnKeyDown = LatKeyDown
     end
     object LatUpDown: TUpDown
       Left = 315
-      Top = 2
-      Width = 17
-      Height = 21
+      Top = 3
+      Width = 21
+      Height = 23
       Min = -32000
       Max = 32000
       TabOrder = 5
@@ -188,12 +191,13 @@ object MapAreaDialog: TMapAreaDialog
       OEMConvert = True
       TabOrder = 6
       Text = '0.000000'
+      OnKeyDown = LonKeyDown
     end
     object LonUpDown: TUpDown
       Left = 219
-      Top = 2
-      Width = 17
-      Height = 21
+      Top = 3
+      Width = 21
+      Height = 23
       Min = -32000
       Max = 32000
       TabOrder = 7

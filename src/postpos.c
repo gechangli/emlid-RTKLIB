@@ -36,6 +36,7 @@
 *           2015/11/26  1.18 support opt->freqopt(disable L2)
 *           2016/01/12  1.19 add carrier-phase bias correction by ssr
 *           2016/07/31  1.20 fix error message problem in rnx2rtkp
+*           2016/08/29  1.21 suppress warnings
 *-----------------------------------------------------------------------------*/
 #include "rtklib.h"
 
@@ -418,7 +419,7 @@ static void procpos(FILE *fp, FILE *fptm, const prcopt_t *popt, const solopt_t *
     trace(3,"procpos : mode=%d\n",mode);
     
     solstatic=sopt->solstatic&&
-              (popt->mode==PMODE_STATIC||popt->mode==PMODE_PPP_STATIC);
+              (popt->mode==PMODE_STATIC||popt->mode==PMODE_STATIC_START||popt->mode==PMODE_PPP_STATIC);
     
     rtkinit(&rtk,popt);
     rtcm_path[0]='\0';
@@ -532,7 +533,7 @@ static void combres(FILE *fp, FILE *fptm, const prcopt_t *popt, const solopt_t *
     trace(3,"combres : isolf=%d isolb=%d\n",isolf,isolb);
     
     solstatic=sopt->solstatic&&
-              (popt->mode==PMODE_STATIC||popt->mode==PMODE_PPP_STATIC);
+              (popt->mode==PMODE_STATIC||popt->mode==PMODE_STATIC_START||popt->mode==PMODE_PPP_STATIC);
     
     for (i=0,j=isolb-1;i<isolf&&j>=0;i++,j--) {
         
@@ -970,7 +971,7 @@ static void setpcv(gtime_t time, prcopt_t *popt, nav_t *nav, const pcvs_t *pcvs,
         if (!(satsys(i+1,NULL)&popt->navsys)) continue;
         if (!(pcv=searchpcv(i+1,"",time,pcvs))) {
             satno2id(i+1,id);
-            trace(2,"no satellite antenna pcv: %s\n",id);
+            trace(3,"no satellite antenna pcv: %s\n",id);
             continue;
         }
         nav->pcvs[i]=*pcv;
@@ -1119,7 +1120,7 @@ static int execses(gtime_t ts, gtime_t te, double ti, const prcopt_t *popt,
             return 0;
         }
     }
-    else if (PMODE_DGPS<=popt_.mode&&popt_.mode<=PMODE_STATIC) {
+    else if (PMODE_DGPS<=popt_.mode&&popt_.mode<=PMODE_STATIC_START) {
         if (!antpos(&popt_,2,&obss,&navs,stas,fopt->stapos)) {
             freeobsnav(&obss,&navs);
             return 0;
