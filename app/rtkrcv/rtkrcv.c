@@ -629,7 +629,7 @@ static void prstatus(vt_t *vt)
     };
     const char *freq[]={"-","L1","L1+L2","L1+L2+L5","","",""};
     rtcm_t rtcm[3];
-    int i,j,n,thread,cycle,state,rtkstat,nsat0,nsat1,prcout,rcvcount,tmcount,timevalid;
+    int i,j,n,thread,cycle,state,rtkstat,nsat0,nsat1,prcout,rcvcount,tmcount,timevalid,nave;
     int cputime,nb[3]={0},nmsg[3][10]={{0}};
     char tstr[64],tmstr[64],s[1024],*p;
     double runtime,rt[3]={0},dop[4]={0},rr[3],bl1=0.0,bl2=0.0;
