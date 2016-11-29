@@ -1782,6 +1782,38 @@ static int relpos(rtk_t *rtk, const obsd_t *obs, int nu, int nr,
     e=mat(3,n);
     azel=zeros(2,n);        /* [az, el] */
 
+    rs=mat(6,n); dts=mat(2,n); var=mat(1,n); y=mat(nf*2,n); e=mat(3,n);
+    azel=zeros(2,n);
+
+    /* Filling additional fields of structure sol_t */
+    for (i=j=0;i<MAXSAT;i++) {
+        if (rtk->ssat[i].azel[1] <= 0) continue;
+        rtk->sol.azim[j] = rtk->ssat[i].azel[0] * R2D;
+        if (rtk->sol.azim[j] < 0.0) rtk->sol.azim[j] += 360.0;
+            rtk->sol.elev[j] = rtk->ssat[i].azel[1] * R2D;
+            rtk->sol.carPh[j] = obs[j].L[0];
+            rtk->sol.psRan[j] = obs[j].P[0];
+            rtk->sol.freqD[j] = obs[j].D[0];
+            rtk->sol.snr[j] = obs[j].SNR[0];
+            azeld[j*2] = rtk->ssat[i].azel[0];
+            azeld[1+j*2] = rtk->ssat[i].azel[1];
+            /*-- Type of sattelite and its id --*/
+            switch (satsys(i+1,&prn)) {
+                case SYS_GPS: rtk->sol.typeSV[j] = 0; rtk->sol.idSV[j] = prn-MINPRNGPS+1; break;
+                case SYS_GLO: rtk->sol.typeSV[j] = 1; rtk->sol.idSV[j] = prn-MINPRNGLO+1; break;
+                case SYS_GAL: rtk->sol.typeSV[j] = 2; rtk->sol.idSV[j] = prn-MINPRNGAL+1; break;
+                case SYS_QZS: rtk->sol.typeSV[j] = 3; rtk->sol.idSV[j] = prn-MINPRNQZS+1; break;
+                case SYS_CMP: rtk->sol.typeSV[j] = 4; rtk->sol.idSV[j] = prn-MINPRNCMP+1; break;
+                case SYS_LEO: rtk->sol.typeSV[j] = 5; rtk->sol.idSV[j] = prn-MINPRNLEO+1; break;
+                case SYS_SBS: rtk->sol.typeSV[j] = 6; rtk->sol.idSV[j] = prn; break;
+            }
+        /*--------------------------------*/
+        j++;
+    }
+    dops(j,azeld,0.0,rtk->sol.dop);
+    rtk->sol.nSV = j;
+
+
     /* init satellite status arrays */
     for (i=0;i<MAXSAT;i++) {
         rtk->ssat[i].sys=satsys(i+1,NULL);                                  /* gps system */
