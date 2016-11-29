@@ -1762,9 +1762,9 @@ static int relpos(rtk_t *rtk, const obsd_t *obs, int nu, int nr,
 {
     prcopt_t *opt=&rtk->opt;
     gtime_t time=obs[0].time;
-    double *rs,*dts,*var,*y,*e,*azel,*v,*H,*R,*xp,*Pp,*xa,*bias,dt;
+    double *rs,*dts,*var,*y,*e,*azel,*v,*H,*R,*xp,*Pp,*xa,*bias,dt,azeld[2*MAXSAT];
     float ratio1;
-    int i,j,f,n=nu+nr,ns,ny,nv,sat[MAXSAT],iu[MAXSAT],ir[MAXSAT],niter,dly;
+    int i,j,f,n=nu+nr,ns,ny,nv,sat[MAXSAT],iu[MAXSAT],ir[MAXSAT],niter,dly,prn;
     int info,vflg[MAXOBS*NFREQ*2+1],svh[MAXOBS*2];
     int stat=rtk->opt.mode<=PMODE_DGPS?SOLQ_DGPS:SOLQ_FLOAT;
     int nf=opt->ionoopt==IONOOPT_IFLC?1:opt->nf,gps1=0,glo1=0,gps2,glo2,result,rerun;
@@ -1790,23 +1790,23 @@ static int relpos(rtk_t *rtk, const obsd_t *obs, int nu, int nr,
         if (rtk->ssat[i].azel[1] <= 0) continue;
         rtk->sol.azim[j] = rtk->ssat[i].azel[0] * R2D;
         if (rtk->sol.azim[j] < 0.0) rtk->sol.azim[j] += 360.0;
-            rtk->sol.elev[j] = rtk->ssat[i].azel[1] * R2D;
-            rtk->sol.carPh[j] = obs[j].L[0];
-            rtk->sol.psRan[j] = obs[j].P[0];
-            rtk->sol.freqD[j] = obs[j].D[0];
-            rtk->sol.snr[j] = obs[j].SNR[0];
-            azeld[j*2] = rtk->ssat[i].azel[0];
-            azeld[1+j*2] = rtk->ssat[i].azel[1];
-            /*-- Type of sattelite and its id --*/
-            switch (satsys(i+1,&prn)) {
-                case SYS_GPS: rtk->sol.typeSV[j] = 0; rtk->sol.idSV[j] = prn-MINPRNGPS+1; break;
-                case SYS_GLO: rtk->sol.typeSV[j] = 1; rtk->sol.idSV[j] = prn-MINPRNGLO+1; break;
-                case SYS_GAL: rtk->sol.typeSV[j] = 2; rtk->sol.idSV[j] = prn-MINPRNGAL+1; break;
-                case SYS_QZS: rtk->sol.typeSV[j] = 3; rtk->sol.idSV[j] = prn-MINPRNQZS+1; break;
-                case SYS_CMP: rtk->sol.typeSV[j] = 4; rtk->sol.idSV[j] = prn-MINPRNCMP+1; break;
-                case SYS_LEO: rtk->sol.typeSV[j] = 5; rtk->sol.idSV[j] = prn-MINPRNLEO+1; break;
-                case SYS_SBS: rtk->sol.typeSV[j] = 6; rtk->sol.idSV[j] = prn; break;
-            }
+        rtk->sol.elev[j] = rtk->ssat[i].azel[1] * R2D;
+        rtk->sol.carPh[j] = obs[j].L[0];
+        rtk->sol.psRan[j] = obs[j].P[0];
+        rtk->sol.freqD[j] = obs[j].D[0];
+        rtk->sol.snr[j] = obs[j].SNR[0];
+        azeld[j*2] = rtk->ssat[i].azel[0];
+        azeld[1+j*2] = rtk->ssat[i].azel[1];
+        /*-- Type of sattelite and its id --*/
+        switch (satsys(i+1,&prn)) {
+            case SYS_GPS: rtk->sol.typeSV[j] = 0; rtk->sol.idSV[j] = prn-MINPRNGPS+1; break;
+            case SYS_GLO: rtk->sol.typeSV[j] = 1; rtk->sol.idSV[j] = prn-MINPRNGLO+1; break;
+            case SYS_GAL: rtk->sol.typeSV[j] = 2; rtk->sol.idSV[j] = prn-MINPRNGAL+1; break;
+            case SYS_QZS: rtk->sol.typeSV[j] = 3; rtk->sol.idSV[j] = prn-MINPRNQZS+1; break;
+            case SYS_CMP: rtk->sol.typeSV[j] = 4; rtk->sol.idSV[j] = prn-MINPRNCMP+1; break;
+            case SYS_LEO: rtk->sol.typeSV[j] = 5; rtk->sol.idSV[j] = prn-MINPRNLEO+1; break;
+            case SYS_SBS: rtk->sol.typeSV[j] = 6; rtk->sol.idSV[j] = prn; break;
+        }
         /*--------------------------------*/
         j++;
     }
