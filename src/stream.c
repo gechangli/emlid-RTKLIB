@@ -529,6 +529,7 @@ static int checkfd(stream_t *stream)
         return 0;
     }
     return 1;
+}
 /* get extended state serial -------------------------------------------------*/
 static int statexserial(serial_t *serial, char *msg)
 {
