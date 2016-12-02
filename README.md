@@ -91,5 +91,4 @@ UPDATE HISTORY
                       add command of serial output
                       add out-outsingle, out-maxsolstd options
                       add commands for u-blox M8P
-
 </pre>

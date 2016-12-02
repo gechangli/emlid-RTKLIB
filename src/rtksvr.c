@@ -1,7 +1,7 @@
 /*------------------------------------------------------------------------------
 * rtksvr.c : rtk server functions
 *
-*          Copyright (C) 2007-2013 by T.TAKASU, All rights reserved.
+*          Copyright (C) 2007-2016 by T.TAKASU, All rights reserved.
 *
 * options : -DWIN32    use WIN32 API
 *
@@ -30,6 +30,9 @@
 *           2015/12/05  1.12 support opt->pppopt=-DIS_FCB
 *           2016/07/01  1.13 support averaging single pos as base position
 *           2016/07/31  1.14 fix bug on ion/utc parameters input
+*           2016/08/20  1.15 support api change of sendnmea()
+*           2016/09/18  1.16 fix server-crash with server-cycle > 1000
+*           2016/09/20  1.17 change api rtksvrstart()
 *-----------------------------------------------------------------------------*/
 #include "rtklib.h"
 
@@ -440,9 +443,9 @@ static void *rtksvrthread(void *arg)
     rtksvr_t *svr=(rtksvr_t *)arg;
     obs_t obs;
     obsd_t data[MAXOBS*2];
-    sol_t sol={{0}};
+    sol_t sol={{0}},sol_nmea={{0}};
     double tt;
-    unsigned int tick,ticknmea;
+    unsigned int tick,ticknmea,tick1hz;
     unsigned char *p,*q;
     char msg[128];
     int i,j,n,fobs[3]={0},cycle,cputime;
@@ -459,7 +462,7 @@ static void *rtksvrthread(void *arg)
     
     svr->state=1; obs.data=data;
     svr->tick=tickget();
-    ticknmea=svr->tick-1000;
+    ticknmea=tick1hz=svr->tick-1000;
     
     for (cycle=0;svr->state;cycle++) {
         tick=tickget();
@@ -539,17 +542,21 @@ static void *rtksvrthread(void *arg)
             }
         }
         /* send null solution if no solution (1hz) */
-        if (svr->rtk.sol.stat==SOLQ_NONE&&cycle%(1000/svr->cycle)==0) {
+        if (svr->rtk.sol.stat==SOLQ_NONE&&(int)(tick-tick1hz)>=1000) {
             writesol(svr,0);
+            tick1hz=tick;
         }
         /* send nmea request to base/nrtk input stream */
         if (svr->nmeacycle>0&&(int)(tick-ticknmea)>=svr->nmeacycle) {
             if (svr->stream[1].state==1) {
                 if (svr->nmeareq==1) {
-                    strsendnmea(svr->stream+1,&latlon_sol);
+                    sol_nmea.stat=SOLQ_SINGLE;
+                    sol_nmea.time=utc2gpst(timeget());
+                    matcpy(sol_nmea.rr,svr->nmeapos,3,1);
+                    strsendnmea(svr->stream+1,&sol_nmea);
                 }
                 else if (svr->nmeareq==2&&norm(svr->rtk.sol.rr,3)>0.0) {
-                    strsendnmea(svr->stream+1,&(svr->rtk.sol));
+                    strsendnmea(svr->stream+1,&svr->rtk.sol);
                 }
             }
             ticknmea=tick;
@@ -702,13 +709,14 @@ extern void rtksvrunlock(rtksvr_t *svr) {unlock(&svr->lock);}
 *                              solopt[0]=solution 1 options
 *                              solopt[1]=solution 2 options
 *          stream_t *moni   I  monitor stream (NULL: not used)
+*          char   *errmsg   O  error message
 * return : status (1:ok 0:error)
 *-----------------------------------------------------------------------------*/
 extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
                        char **paths, int *formats, int navsel, char **cmds,
                        char **rcvopts, int nmeacycle, int nmeareq,
                        const double *nmeapos, prcopt_t *prcopt,
-                       solopt_t *solopt, stream_t *moni)
+                       solopt_t *solopt, stream_t *moni, char *errmsg)
 {
     gtime_t time,time0={0};
     int i,j,rw;
@@ -716,8 +724,10 @@ extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
     tracet(3,"rtksvrstart: cycle=%d buffsize=%d navsel=%d nmeacycle=%d nmeareq=%d\n",
            cycle,buffsize,navsel,nmeacycle,nmeareq);
     
-    if (svr->state) return 0;
-    
+    if (svr->state) {
+        sprintf(errmsg,"server already started");
+        return 0;
+    }
     strinitcom();
     svr->cycle=cycle>1?cycle:1;
     svr->nmeacycle=nmeacycle>1000?nmeacycle:1000;
@@ -741,6 +751,7 @@ extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
         if (!(svr->buff[i]=(unsigned char *)malloc(buffsize))||
             !(svr->pbuf[i]=(unsigned char *)malloc(buffsize))) {
             tracet(1,"rtksvrstart: malloc error\n");
+            sprintf(errmsg,"rtk server malloc error");
             return 0;
         }
         for (j=0;j<10;j++) svr->nmsg[i][j]=0;
@@ -760,6 +771,7 @@ extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
     for (i=0;i<2;i++) { /* output peek buffer */
         if (!(svr->sbuf[i]=(unsigned char *)malloc(buffsize))) {
             tracet(1,"rtksvrstart: malloc error\n");
+            sprintf(errmsg,"rtk server malloc error");
             return 0;
         }
     }
@@ -787,6 +799,7 @@ extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
         rw=i<3?STR_MODE_R:STR_MODE_W;
         if (strs[i]!=STR_FILE) rw|=STR_MODE_W;
         if (!stropen(svr->stream+i,strs[i],rw,paths[i])) {
+            sprintf(errmsg,"str%d open error path=%s",i+1,paths[i]);
             for (i--;i>=0;i--) strclose(svr->stream+i);
             return 0;
         }
@@ -816,6 +829,7 @@ extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
     if (pthread_create(&svr->thread,NULL,rtksvrthread,svr)) {
 #endif
         for (i=0;i<MAXSTRRTK;i++) strclose(svr->stream+i);
+        sprintf(errmsg,"thread create error\n");
         return 0;
     }
     return 1;

@@ -1,6 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <BorlandProject>
 	<Transactions>
+<<<<<<< HEAD
     <Transaction>2012/12/27 05:32:09.000.765,D:\proj\rtklib\app\rtkpost\maskoptdlg.h=D:\proj\rtklib\app\rtkpost\Unit1.h</Transaction>
     <Transaction>2012/12/27 05:32:09.000.765,D:\proj\rtklib\app\rtkpost\maskoptdlg.cpp=D:\proj\rtklib\app\rtkpost\Unit1.cpp</Transaction>
     <Transaction>2012/12/27 05:32:09.000.765,D:\proj\rtklib\app\rtkpost\maskoptdlg.dfm=D:\proj\rtklib\app\rtkpost\Unit1.dfm</Transaction>
@@ -22,6 +23,9 @@
     <Transaction>2016/06/19 11:31:28.000.308,D:\proj\RTKLIB\src\rtcm.c=</Transaction>
     <Transaction>2016/06/19 11:31:28.000.318,D:\proj\RTKLIB\src\rtcm3.c=</Transaction>
     <Transaction>2016/06/19 11:31:28.000.333,D:\proj\RTKLIB\src\rtkpos.c=</Transaction>
+    <Transaction>2016/06/19 11:31:28.000.318,D:\proj\RTKLIB\src\rtcm3.c=</Transaction>
+    <Transaction>2016/06/19 11:31:28.000.302,D:\proj\RTKLIB\src\rinex.c=</Transaction>
+    <Transaction>2016/06/19 11:31:28.000.308,D:\proj\RTKLIB\src\rtcm.c=</Transaction>
     <Transaction>2016/06/19 11:31:28.000.348,D:\proj\RTKLIB\src\tides.c=</Transaction>
     <Transaction>2016/06/19 11:31:28.000.313,D:\proj\RTKLIB\src\rtcm2.c=</Transaction>
     <Transaction>2016/06/19 11:31:28.000.343,D:\proj\RTKLIB\src\solution.c=</Transaction>
