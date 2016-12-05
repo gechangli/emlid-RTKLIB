@@ -61,6 +61,7 @@ void __fastcall TInputStrDialog::FormShow(TObject *Sender)
 	TimeStartE->Text     =TimeStart;
 	NmeaPos1  ->Text     =s.sprintf("%.9f",NmeaPos[0]);
 	NmeaPos2  ->Text     =s.sprintf("%.9f",NmeaPos[1]);
+	NmeaPos3  ->Text     =s.sprintf("%.3f",NmeaPos[2]);
 	UpdateEnable();
 }
 //---------------------------------------------------------------------------
@@ -84,6 +85,7 @@ void __fastcall TInputStrDialog::BtnOkClick(TObject *Sender)
 	TimeStart  =TimeStartE->Text;
 	NmeaPos[0] =str2dbl(NmeaPos1->Text);
 	NmeaPos[1] =str2dbl(NmeaPos2->Text);
+	NmeaPos[2] =str2dbl(NmeaPos3->Text);
 }
 //---------------------------------------------------------------------------
 void __fastcall TInputStrDialog::StreamC1Click(TObject *Sender)
@@ -179,88 +181,76 @@ void __fastcall TInputStrDialog::BtnStr3Click(TObject *Sender)
 //---------------------------------------------------------------------------
 void __fastcall TInputStrDialog::BtnCmd1Click(TObject *Sender)
 {
-	if (Stream1->ItemIndex==0) {
-		CmdOptDialog->Cmds  [0]=Cmds  [0][0];
-		CmdOptDialog->Cmds  [1]=Cmds  [0][1];
-		CmdOptDialog->CmdEna[0]=CmdEna[0][0];
-		CmdOptDialog->CmdEna[1]=CmdEna[0][1];
-	}
-	else {
-		CmdOptDialog->Cmds  [0]=CmdsTcp  [0][0];
-		CmdOptDialog->Cmds  [1]=CmdsTcp  [0][1];
-		CmdOptDialog->CmdEna[0]=CmdEnaTcp[0][0];
-		CmdOptDialog->CmdEna[1]=CmdEnaTcp[0][1];
+	for (int i=0;i<3;i++) {
+		if (Stream1->ItemIndex==0) {
+			CmdOptDialog->Cmds  [i]=Cmds  [0][i];
+			CmdOptDialog->CmdEna[i]=CmdEna[0][i];
+		}
+		else {
+			CmdOptDialog->Cmds  [i]=CmdsTcp  [0][i];
+			CmdOptDialog->CmdEna[i]=CmdEnaTcp[0][i];
+		}
 	}
 	if (CmdOptDialog->ShowModal()!=mrOk) return;
-	if (Stream1->ItemIndex==0) {
-		Cmds  [0][0]=CmdOptDialog->Cmds  [0];
-		Cmds  [0][1]=CmdOptDialog->Cmds  [1];
-		CmdEna[0][0]=CmdOptDialog->CmdEna[0];
-		CmdEna[0][1]=CmdOptDialog->CmdEna[1];
-	}
-	else {
-		CmdsTcp  [0][0]=CmdOptDialog->Cmds  [0];
-		CmdsTcp  [0][1]=CmdOptDialog->Cmds  [1];
-		CmdEnaTcp[0][0]=CmdOptDialog->CmdEna[0];
-		CmdEnaTcp[0][1]=CmdOptDialog->CmdEna[1];
+	for (int i=0;i<3;i++) {
+		if (Stream1->ItemIndex==0) {
+			Cmds  [0][i]=CmdOptDialog->Cmds  [i];
+			CmdEna[0][i]=CmdOptDialog->CmdEna[i];
+		}
+		else {
+			CmdsTcp  [0][i]=CmdOptDialog->Cmds  [i];
+			CmdEnaTcp[0][i]=CmdOptDialog->CmdEna[i];
+		}
 	}
 }
 //---------------------------------------------------------------------------
 void __fastcall TInputStrDialog::BtnCmd2Click(TObject *Sender)
 {
-	if (Stream2->ItemIndex==0) {
-		CmdOptDialog->Cmds  [0]=Cmds  [1][0];
-		CmdOptDialog->Cmds  [1]=Cmds  [1][1];
-		CmdOptDialog->CmdEna[0]=CmdEna[1][0];
-		CmdOptDialog->CmdEna[1]=CmdEna[1][1];
-	}
-	else {
-		CmdOptDialog->Cmds  [0]=CmdsTcp  [1][0];
-		CmdOptDialog->Cmds  [1]=CmdsTcp  [1][1];
-		CmdOptDialog->CmdEna[0]=CmdEnaTcp[1][0];
-		CmdOptDialog->CmdEna[1]=CmdEnaTcp[1][1];
+	for (int i=0;i<3;i++) {
+		if (Stream1->ItemIndex==0) {
+			CmdOptDialog->Cmds  [i]=Cmds  [1][i];
+			CmdOptDialog->CmdEna[i]=CmdEna[1][i];
+		}
+		else {
+			CmdOptDialog->Cmds  [i]=CmdsTcp  [1][i];
+			CmdOptDialog->CmdEna[i]=CmdEnaTcp[1][i];
+		}
 	}
 	if (CmdOptDialog->ShowModal()!=mrOk) return;
-	if (Stream2->ItemIndex==0) {
-		Cmds  [1][0]=CmdOptDialog->Cmds  [0];
-		Cmds  [1][1]=CmdOptDialog->Cmds  [1];
-		CmdEna[1][0]=CmdOptDialog->CmdEna[0];
-		CmdEna[1][1]=CmdOptDialog->CmdEna[1];
-	}
-	else {
-		CmdsTcp  [1][0]=CmdOptDialog->Cmds  [0];
-		CmdsTcp  [1][1]=CmdOptDialog->Cmds  [1];
-		CmdEnaTcp[1][0]=CmdOptDialog->CmdEna[0];
-		CmdEnaTcp[1][1]=CmdOptDialog->CmdEna[1];
+	for (int i=0;i<3;i++) {
+		if (Stream1->ItemIndex==0) {
+			Cmds  [1][i]=CmdOptDialog->Cmds  [i];
+			CmdEna[1][i]=CmdOptDialog->CmdEna[i];
+		}
+		else {
+			CmdsTcp  [1][i]=CmdOptDialog->Cmds  [i];
+			CmdEnaTcp[1][i]=CmdOptDialog->CmdEna[i];
+		}
 	}
 }
 //---------------------------------------------------------------------------
 void __fastcall TInputStrDialog::BtnCmd3Click(TObject *Sender)
 {
-	if (Stream3->ItemIndex==0) {
-		CmdOptDialog->Cmds  [0]=Cmds  [2][0];
-		CmdOptDialog->Cmds  [1]=Cmds  [2][1];
-		CmdOptDialog->CmdEna[0]=CmdEna[2][0];
-		CmdOptDialog->CmdEna[1]=CmdEna[2][1];
-	}
-	else {
-		CmdOptDialog->Cmds  [0]=CmdsTcp  [2][0];
-		CmdOptDialog->Cmds  [1]=CmdsTcp  [2][1];
-		CmdOptDialog->CmdEna[0]=CmdEnaTcp[2][0];
-		CmdOptDialog->CmdEna[1]=CmdEnaTcp[2][1];
+	for (int i=0;i<3;i++) {
+		if (Stream1->ItemIndex==0) {
+			CmdOptDialog->Cmds  [i]=Cmds  [2][i];
+			CmdOptDialog->CmdEna[i]=CmdEna[2][i];
+		}
+		else {
+			CmdOptDialog->Cmds  [i]=CmdsTcp  [2][i];
+			CmdOptDialog->CmdEna[i]=CmdEnaTcp[2][i];
+		}
 	}
 	if (CmdOptDialog->ShowModal()!=mrOk) return;
-	if (Stream3->ItemIndex==0) {
-		Cmds  [2][0]=CmdOptDialog->Cmds  [0];
-		Cmds  [2][1]=CmdOptDialog->Cmds  [1];
-		CmdEna[2][0]=CmdOptDialog->CmdEna[0];
-		CmdEna[2][1]=CmdOptDialog->CmdEna[1];
-	}
-	else {
-		CmdsTcp  [2][0]=CmdOptDialog->Cmds  [0];
-		CmdsTcp  [2][1]=CmdOptDialog->Cmds  [1];
-		CmdEnaTcp[2][0]=CmdOptDialog->CmdEna[0];
-		CmdEnaTcp[2][1]=CmdOptDialog->CmdEna[1];
+	for (int i=0;i<3;i++) {
+		if (Stream1->ItemIndex==0) {
+			Cmds  [2][i]=CmdOptDialog->Cmds  [i];
+			CmdEna[2][i]=CmdOptDialog->CmdEna[i];
+		}
+		else {
+			CmdsTcp  [2][i]=CmdOptDialog->Cmds  [i];
+			CmdEnaTcp[2][i]=CmdOptDialog->CmdEna[i];
+		}
 	}
 }
 //---------------------------------------------------------------------------
@@ -290,10 +280,12 @@ void __fastcall TInputStrDialog::BtnPosClick(TObject *Sender)
 	AnsiString s;
 	RefDialog->RovPos[0]=str2dbl(NmeaPos1->Text);
 	RefDialog->RovPos[1]=str2dbl(NmeaPos2->Text);
+	RefDialog->RovPos[2]=str2dbl(NmeaPos3->Text);
 	RefDialog->StaPosFile=MainForm->StaPosFileF;
 	if (RefDialog->ShowModal()!=mrOk) return;
 	NmeaPos1->Text=s.sprintf("%.9f",RefDialog->Pos[0]);
 	NmeaPos2->Text=s.sprintf("%.9f",RefDialog->Pos[1]);
+	NmeaPos3->Text=s.sprintf("%.3f",RefDialog->Pos[2]);
 }
 //---------------------------------------------------------------------------
 void __fastcall TInputStrDialog::SerialOpt(int index, int opt)
@@ -376,6 +368,7 @@ void __fastcall TInputStrDialog::UpdateEnable(void)
 	NmeaReqL  ->Enabled=ena2;
 	NmeaPos1  ->Enabled=ena2&&NmeaReqL->ItemIndex==1;
 	NmeaPos2  ->Enabled=ena2&&NmeaReqL->ItemIndex==1;
+	NmeaPos3  ->Enabled=ena2&&NmeaReqL->ItemIndex==1;
 	BtnPos    ->Enabled=ena2&&NmeaReqL->ItemIndex==1;
 	
 	LabelF1   ->Enabled=ena1;

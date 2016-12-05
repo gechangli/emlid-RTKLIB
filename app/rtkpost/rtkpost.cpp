@@ -3,43 +3,6 @@
 #include <vcl.h>
 #pragma hdrstop
 //---------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 USEFORM("..\appcmn\viewer.cpp", TextViewer);
 USEFORM("..\appcmn\timedlg.cpp", TimeDialog);
 USEFORM("..\appcmn\vieweropt.cpp", ViewerOptDialog);

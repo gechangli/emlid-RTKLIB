@@ -59,7 +59,6 @@ static const char rcsid[]="$Id:$";
 #define MAXARG      10                  /* max number of args in a command */
 #define MAXCMD      256                 /* max length of a command */
 #define MAXSTR      1024                /* max length of a stream */
-#define MAXRCVCMD   4096                /* max receiver command */
 #define OPTSDIR     "."                 /* default config directory */
 #define OPTSFILE    "rtkrcv.conf"       /* default config file */
 #define NAVIFILE    "rtkrcv.nav"        /* navigation save file */
@@ -110,7 +109,7 @@ static int buffsize     =32768;         /* input buffer size (bytes) */
 static int navmsgsel    =0;             /* navigation mesaage select */
 static char proxyaddr[256]="";          /* http/ntrip proxy */
 static int nmeareq      =0;             /* nmea request type (0:off,1:lat/lon,2:single) */
-static double nmeapos[] ={0,0};         /* nmea position (lat/lon) (deg) */
+static double nmeapos[] ={0,0,0};       /* nmea position (lat/lon/height) (deg,m) */
 static char rcvcmds[3][MAXSTR]={""};    /* receiver commands files */
 static char startcmd[MAXSTR]="";        /* start command */
 static char stopcmd [MAXSTR]="";        /* stop command */
@@ -204,6 +203,7 @@ static opt_t rcvopts[]={
     {"inpstr2-nmeareq", 3,  (void *)&nmeareq,            NMEOPT },
     {"inpstr2-nmealat", 1,  (void *)&nmeapos[0],         "deg"  },
     {"inpstr2-nmealon", 1,  (void *)&nmeapos[1],         "deg"  },
+    {"inpstr2-nmeahgt", 1,  (void *)&nmeapos[2],         "m"    },
     {"outstr1-type",    3,  (void *)&strtype[3],         OSTOPT },
     {"outstr2-type",    3,  (void *)&strtype[4],         OSTOPT },
     {"outstr1-path",    2,  (void *)strpath [3],         ""     },
@@ -346,7 +346,7 @@ static int readcmd(const char *file, char *cmd, int type)
     if (!(fp=fopen(file,"r"))) return 0;
     
     while (fgets(buff,sizeof(buff),fp)) {
-        if (*buff=='@') i=1;
+        if (*buff=='@') i++;
         else if (i==type&&p+strlen(buff)+1<cmd+MAXRCVCMD) {
             p+=sprintf(p,"%s",buff);
         }
@@ -395,7 +395,8 @@ static int startsvr(vt_t *vt)
 {
     static sta_t sta[MAXRCV]={{""}};
     double pos[3],npos[3];
-    char s[3][MAXRCVCMD]={"","",""},*cmds[]={NULL,NULL,NULL};
+    char s1[3][MAXRCVCMD]={"","",""},*cmds[]={NULL,NULL,NULL};
+    char s2[3][MAXRCVCMD]={"","",""},*cmds_periodic[]={NULL,NULL,NULL};
     char *ropts[]={"","",""};
     char *paths[]={
         strpath[0],strpath[1],strpath[2],strpath[3],strpath[4],strpath[5],
@@ -409,10 +410,14 @@ static int startsvr(vt_t *vt)
     /* read start commads from command files */
     for (i=0;i<3;i++) {
         if (!*rcvcmds[i]) continue;
-        if (!readcmd(rcvcmds[i],s[i],0)) {
+        if (!readcmd(rcvcmds[i],s1[i],0)) {
             vt_printf(vt,"no command file: %s\n",rcvcmds[i]);
         }
-        else cmds[i]=s[i];
+        else cmds[i]=s1[i];
+        if (!readcmd(rcvcmds[i],s2[i],2)) {
+            vt_printf(vt,"no command file: %s\n",rcvcmds[i]);
+        }
+        else cmds_periodic[i]=s2[i];
     }
     /* confirm overwrite */
     for (i=3;i<8;i++) {
@@ -423,7 +428,7 @@ static int startsvr(vt_t *vt)
     }
     pos[0]=nmeapos[0]*D2R;
     pos[1]=nmeapos[1]*D2R;
-    pos[2]=0.0;
+    pos[2]=nmeapos[2];
     pos2ecef(pos,npos);
     
     /* read antenna file */
@@ -466,8 +471,8 @@ static int startsvr(vt_t *vt)
     
     /* start rtk server */
     if (!rtksvrstart(&svr,svrcycle,buffsize,strtype,paths,strfmt,navmsgsel,
-                     cmds,ropts,nmeacycle,nmeareq,npos,&prcopt,solopt,&moni,
-                     errmsg)) {
+                     cmds,cmds_periodic,ropts,nmeacycle,nmeareq,npos,&prcopt,
+                     solopt,&moni,errmsg)) {
         trace(2,"rtk server start error (%s)\n",errmsg);
         vt_printf(vt,"rtk server start error (%s)\n",errmsg);
         return 0;
@@ -552,8 +557,8 @@ static void prsolution(vt_t *vt, const sol_t *sol, const double *rb)
         if (norm(sol->rr,3)>0.0) {
             ecef2pos(sol->rr,pos);
             covenu(pos,Qr,Qe);
-            deg2dms(pos[0]*R2D,dms1);
-            deg2dms(pos[1]*R2D,dms2);
+            deg2dms(pos[0]*R2D,dms1,4);
+            deg2dms(pos[1]*R2D,dms2,4);
             if (solopt[0].height==1) pos[2]-=geoidh(pos); /* geodetic */
         }       
         vt_printf(vt," %s:%2.0f %02.0f %07.4f",pos[0]<0?"S":"N",fabs(dms1[0]),dms1[1],dms1[2]);

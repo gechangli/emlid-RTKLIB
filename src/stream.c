@@ -56,6 +56,7 @@
 *                           add api strstatx(),strsetsrctbl()
 *                           add api strsetsel(),strgetsel()
 *           2016/09/06 1.23 fix bug on ntrip caster socket and request handling
+*           2016/09/27 1.24 support udp server and client
 *-----------------------------------------------------------------------------*/
 #include <ctype.h>
 #include "rtklib.h"
@@ -86,6 +87,7 @@ static const char rcsid[]="$Id$";
 #define TIMETAGH_LEN        64          /* time tag file header length */
 #define MAXCLI              32          /* max client connection for tcp svr */
 #define MAXSTATMSG          32          /* max length of status message */
+#define DEFAULT_MEMBUF_SIZE 4096        /* default memory buffer size (bytes) */
 
 #define NTRIP_AGENT         "RTKLIB/" VER_RTKLIB
 #define NTRIP_CLI_PORT      2101        /* default ntrip-client connection port */
@@ -211,6 +213,15 @@ typedef struct {            /* ntrip caster control type */
     ntripc_con_t con[MAXCLI]; /* ntrip caster connections */
 } ntripc_t;
 
+typedef struct {            /* udp type */
+    int state;              /* state (0:close,1:open) */
+    int type;               /* type (0:server,1:client) */
+    int port;               /* port */
+    char saddr[256];        /* address (server:filter,client:server) */
+    struct sockaddr_in addr; /* address resolved */
+    socket_t sock;          /* socket descriptor */
+} udp_t;
+
 typedef struct {            /* ftp download control type */
     int state;              /* state (0:close,1:download,2:complete,3:error) */
     int proto;              /* protocol (0:ftp,1:http) */
@@ -225,6 +236,13 @@ typedef struct {            /* ftp download control type */
     gtime_t tnext;          /* next retry time (gpst) */
     thread_t thread;        /* download thread */
 } ftp_t;
+
+typedef struct {            /* memory buffer type */
+    int state,wp,rp;        /* state,write/read pointer */
+    int bufsize;            /* buffer size (bytes) */
+    lock_t lock;            /* lock flag */
+    unsigned char *buf;     /* write buffer */
+} membuf_t;
 
 /* proto types for static functions ------------------------------------------*/
 
@@ -1264,7 +1282,7 @@ static int statetcpsvr(tcpsvr_t *tcpsvr)
 {
     return tcpsvr?tcpsvr->svr.state:0;
 }
-/* print extended state tcp ----------------------------------------------------*/
+/* print extended state tcp --------------------------------------------------*/
 static int statextcp(tcp_t *tcp, char *msg)
 {
     char *p=msg;
@@ -2064,7 +2082,7 @@ static int statentripc(ntripc_t *ntripc)
 {
     return !ntripc?0:ntripc->state;
 }
-/* get extended state ntrip --------------------------------------------------*/
+/* get extended state ntrip-caster -------------------------------------------*/
 static int statexntripc(ntripc_t *ntripc, char *msg)
 {
     char *p=msg;
@@ -2087,6 +2105,176 @@ static int statexntripc(ntripc_t *ntripc, char *msg)
         p+=sprintf(p,"    str   = %s\n",ntripc->con[i].str);
         p+=sprintf(p,"    nb    = %d\n",ntripc->con[i].nb);
     }
+    return state;
+}
+/* generate udp socket -------------------------------------------------------*/
+static udp_t *genudp(int type, int port, const char *saddr, char *msg)
+{
+    udp_t *udp;
+    struct hostent *hp;
+    int bs=buffsize,opt=1;
+    
+    tracet(3,"genudp: type=%d\n",type);
+    
+    if (!(udp=(udp_t *)malloc(sizeof(udp_t)))) return NULL;
+    udp->state=2;
+    udp->type=type;
+    udp->port=port;
+    strcpy(udp->saddr,saddr);
+    
+    if ((udp->sock=socket(AF_INET,SOCK_DGRAM,0))==(socket_t)-1) {
+        sprintf(msg,"socket error (%d)",errsock());
+        return NULL;
+    }
+    if (setsockopt(udp->sock,SOL_SOCKET,SO_RCVBUF,(const char *)&bs,sizeof(bs))==-1||
+        setsockopt(udp->sock,SOL_SOCKET,SO_SNDBUF,(const char *)&bs,sizeof(bs))==-1) {
+        tracet(2,"genudp: setsockopt error sock=%d err=%d bs=%d\n",udp->sock,errsock(),bs);
+        sprintf(msg,"sockopt error: bufsiz");
+    }
+    memset(&udp->addr,0,sizeof(udp->addr));
+    udp->addr.sin_family=AF_INET;
+    udp->addr.sin_port=htons(port);
+    
+    if (!udp->type) { /* udp server */
+        udp->addr.sin_addr.s_addr=htonl(INADDR_ANY);
+#ifdef SVR_REUSEADDR
+        setsockopt(udp->sock,SOL_SOCKET,SO_REUSEADDR,(const char *)&opt, sizeof(opt));
+#endif
+        if (bind(udp->sock,(struct sockaddr *)&udp->addr,sizeof(udp->addr))==-1) {
+            tracet(2,"genudp: bind error sock=%d port=%d err=%d\n",udp->sock,port,errsock());
+            sprintf(msg,"bind error (%d): %d",errsock(),port);
+            closesocket(udp->sock);
+            free(udp);
+            return NULL;
+        }
+    }
+    else { /* udp client */
+        if (!strcmp(saddr,"255.255.255.255")&&
+            setsockopt(udp->sock,SOL_SOCKET,SO_BROADCAST,(const char *)&opt,
+                       sizeof(opt))==-1) {
+            tracet(2,"genudp: setsockopt error sock=%d err=%d\n",udp->sock,errsock());
+            sprintf(msg,"sockopt error: broadcast");
+        }
+        if (!(hp=gethostbyname(saddr))) {
+            sprintf(msg,"address error (%s)",saddr);
+            closesocket(udp->sock);
+            free(udp);
+            return NULL;
+        }
+        memcpy(&udp->addr.sin_addr,hp->h_addr,hp->h_length);
+    }
+    return udp;
+}
+/* open udp server -----------------------------------------------------------*/
+static udp_t *openudpsvr(const char *path, char *msg)
+{
+    char sport[256]="";
+    int port;
+    
+    tracet(3,"openudpsvr: path=%s\n",path);
+    
+    decodetcppath(path,NULL,sport,NULL,NULL,NULL,NULL);
+    
+    if (sscanf(sport,"%d",&port)<1) {
+        sprintf(msg,"port error: %s",sport);
+        tracet(1,"openudpsvr: port error port=%s\n",port);
+        return NULL;
+    }
+    return genudp(0,port,"",msg);
+}
+/* close udp server ----------------------------------------------------------*/
+static void closeudpsvr(udp_t *udpsvr)
+{
+    tracet(3,"closeudpsvr: sock=%d\n",udpsvr->sock);
+    
+    closesocket(udpsvr->sock);
+    free(udpsvr);
+}
+/* read udp server -----------------------------------------------------------*/
+static int readudpsvr(udp_t *udpsvr, unsigned char *buff, int n, char *msg)
+{
+    struct timeval tv={0};
+    fd_set rs;
+    int ret,nr;
+    
+    tracet(4,"readudpsvr: sock=%d n=%d\n",udpsvr->sock,n);
+    
+    FD_ZERO(&rs); FD_SET(udpsvr->sock,&rs);
+    ret=select(udpsvr->sock+1,&rs,NULL,NULL,&tv);
+    if (ret<=0) return ret;
+    nr=recvfrom(udpsvr->sock,(char *)buff,n,0,NULL,NULL);
+    return nr<=0?-1:nr;
+}
+/* get state udp server ------------------------------------------------------*/
+static int stateudpsvr(udp_t *udpsvr)
+{
+    return udpsvr?udpsvr->state:0;
+}
+/* get extended state udp server ---------------------------------------------*/
+static int statexudpsvr(udp_t *udpsvr, char *msg)
+{
+    char *p=msg;
+    int state=udpsvr?udpsvr->state:0;
+    
+    p+=sprintf(p,"udpsvr:\n");
+    p+=sprintf(p,"  state   = %d\n",state);
+    if (!state) return 0;
+    p+=sprintf(p,"  type    = %d\n",udpsvr->type);
+    p+=sprintf(p,"  sock    = %d\n",(int)udpsvr->sock);
+    p+=sprintf(p,"  port    = %d\n",udpsvr->port);
+    return state;
+}
+/* open udp client -----------------------------------------------------------*/
+static udp_t *openudpcli(const char *path, char *msg)
+{
+    char sport[256]="",saddr[256]="";
+    int port;
+    
+    tracet(3,"openudpsvr: path=%s\n",path);
+    
+    decodetcppath(path,saddr,sport,NULL,NULL,NULL,NULL);
+    
+    if (sscanf(sport,"%d",&port)<1) {
+        sprintf(msg,"port error: %s",sport);
+        tracet(1,"openudpcli: port error port=%s\n",sport);
+        return NULL;
+    }
+    return genudp(1,port,saddr,msg);
+}
+/* close udp client ----------------------------------------------------------*/
+static void closeudpcli(udp_t *udpcli)
+{
+    tracet(3,"closeudpcli: sock=%d\n",udpcli->sock);
+    
+    closesocket(udpcli->sock);
+    free(udpcli);
+}
+/* write udp client -----------------------------------------------------------*/
+static int writeudpcli(udp_t *udpcli, unsigned char *buff, int n, char *msg)
+{
+    tracet(4,"writeudpcli: sock=%d n=%d\n",udpcli->sock,n);
+    
+    return (int)sendto(udpcli->sock,(char *)buff,n,0,
+                       (struct sockaddr *)&udpcli->addr,sizeof(udpcli->addr));
+}
+/* get state udp client ------------------------------------------------------*/
+static int stateudpcli(udp_t *udpcli)
+{
+    return udpcli?udpcli->state:0;
+}
+/* get extended state udp client ---------------------------------------------*/
+static int statexudpcli(udp_t *udpcli, char *msg)
+{
+    char *p=msg;
+    int state=udpcli?udpcli->state:0;
+    
+    p+=sprintf(p,"udpsvr:\n");
+    p+=sprintf(p,"  state   = %d\n",state);
+    if (!state) return 0;
+    p+=sprintf(p,"  type    = %d\n",udpcli->type);
+    p+=sprintf(p,"  sock    = %d\n",(int)udpcli->sock);
+    p+=sprintf(p,"  addr    = %s\n",udpcli->saddr);
+    p+=sprintf(p,"  port    = %d\n",udpcli->port);
     return state;
 }
 /* decode ftp path -----------------------------------------------------------*/
@@ -2342,6 +2530,103 @@ static int statexftp(ftp_t *ftp, char *msg)
 {
     return !ftp?0:(ftp->state==0?2:(ftp->state<=2?3:-1));
 }
+/* open memory buffer --------------------------------------------------------*/
+static membuf_t *openmembuf(const char *path, char *msg)
+{
+    membuf_t *membuf;
+    int bufsize=DEFAULT_MEMBUF_SIZE;
+    
+    tracet(3,"openmembuf: path=%s\n",path);
+    
+    msg[0]='\0';
+    
+    sscanf(path,"%d",&bufsize);
+    
+    if (!(membuf=(membuf_t *)malloc(sizeof(membuf_t)))) return NULL;
+    membuf->state=1;
+    membuf->rp=0;
+    membuf->wp=0;
+    if (!(membuf->buf=(unsigned char *)malloc(bufsize))) {
+        free(membuf);
+        return NULL;
+    }
+    membuf->bufsize=bufsize;
+    initlock(&membuf->lock);
+    
+    sprintf(msg,"membuf sizebuf=%d",bufsize);
+    
+    return membuf;
+}
+/* close ftp -----------------------------------------------------------------*/
+static void closemembuf(membuf_t *membuf)
+{
+    tracet(3,"closemembufp\n");
+    
+    free(membuf->buf);
+    free(membuf);
+}
+/* read memory buffer --------------------------------------------------------*/
+static int readmembuf(membuf_t *membuf, unsigned char *buff, int n, char *msg)
+{
+    int i,nr=0;
+    
+    tracet(4,"readmembuf: n=%d\n",n);
+    
+    if (!membuf) return 0;
+    
+    lock(&membuf->lock);
+    
+    for (i=membuf->rp;i!=membuf->wp&&nr<n;i++) {
+        if (i>=membuf->bufsize) i=0;
+        buff[nr++]=membuf->buf[i];
+    }
+    membuf->rp=i;
+    unlock(&membuf->lock);
+    return nr;
+}
+/* write memory buffer -------------------------------------------------------*/
+static int writemembuf(membuf_t *membuf, unsigned char *buff, int n, char *msg)
+{
+    int i;
+    
+    tracet(3,"writemembuf: n=%d\n",n);
+    
+    if (!membuf) return 0;
+    
+    lock(&membuf->lock);
+    
+    for (i=0;i<n;i++) {
+        membuf->buf[membuf->wp++]=buff[i];
+        if (membuf->wp>=membuf->bufsize) membuf->wp=0;
+        if (membuf->wp==membuf->rp) {
+           strcpy(msg,"mem-buffer overflow");
+           membuf->state=-1;
+           unlock(&membuf->lock);
+           return i+1;
+        }
+    }
+    unlock(&membuf->lock);
+    return i;
+}
+/* get state memory buffer ---------------------------------------------------*/
+static int statemembuf(membuf_t *membuf)
+{
+    return !membuf?0:membuf->state;
+}
+/* get extended state memory buffer ------------------------------------------*/
+static int statexmembuf(membuf_t *membuf, char *msg)
+{
+    char *p=msg;
+    int state=!membuf?0:membuf->state;
+    
+    p+=sprintf(p,"membuf:\n");
+    p+=sprintf(p,"  state   = %d\n",state);
+    if (!state) return 0;
+    p+=sprintf(p,"  buffsize= %d\n",membuf->bufsize);
+    p+=sprintf(p,"  wp      = %d\n",membuf->wp);
+    p+=sprintf(p,"  rp      = %d\n",membuf->rp);
+    return state;
+}
 /* initialize stream environment -----------------------------------------------
 * initialize stream environment
 * args   : none
@@ -2408,6 +2693,10 @@ extern void strinit(stream_t *stream)
 *   STR_NTRIPCLI [user[:passwd]@]address[:port]/mountpoint
 *   STR_NTRIPC_S [user[:passwd]@][:port]/mountpoint
 *   STR_NTRIPC_C [user[:passwd]@][:port]/mountpoint
+*   STR_UDPSVR   :port[/cli_addr]
+*                    cli_addr = accepted udp client address ("": all)
+*   STR_UDPCLI   address:port[/if_address]
+*                    if_addr = used interface address
 *   STR_FTP      [user[:passwd]@]address/file_path[::T=poff[,tint[,toff,tret]]]]
 *   STR_HTTP     address/file_path[::T=poff[,tint[,toff,tret]]]]
 *                    poff  = time offset for path extension (s)
@@ -2436,8 +2725,11 @@ extern int stropen(stream_t *stream, int type, int mode, const char *path)
         case STR_NTRIPCLI: stream->port=openntrip (path,1,   stream->msg); break;
         case STR_NTRIPC_S: stream->port=openntripc(path,0,   stream->msg); break;
         case STR_NTRIPC_C: stream->port=openntripc(path,1,   stream->msg); break;
+        case STR_UDPSVR  : stream->port=openudpsvr(path,     stream->msg); break;
+        case STR_UDPCLI  : stream->port=openudpcli(path,     stream->msg); break;
         case STR_FTP     : stream->port=openftp   (path,0,   stream->msg); break;
         case STR_HTTP    : stream->port=openftp   (path,1,   stream->msg); break;
+        case STR_MEMBUF  : stream->port=openmembuf(path,     stream->msg); break;
         default: stream->state=0; return 1;
     }
     stream->state=!stream->port?-1:1;
@@ -2468,8 +2760,11 @@ extern void strclose(stream_t *stream)
             case STR_NTRIPCLI: closentrip ((ntrip_t  *)stream->port); break;
             case STR_NTRIPC_S: closentripc((ntripc_t *)stream->port); break;
             case STR_NTRIPC_C: closentripc((ntripc_t *)stream->port); break;
+            case STR_UDPSVR  : closeudpsvr((udp_t    *)stream->port); break;
+            case STR_UDPCLI  : closeudpcli((udp_t    *)stream->port); break;
             case STR_FTP     : closeftp   ((ftp_t    *)stream->port); break;
             case STR_HTTP    : closeftp   ((ftp_t    *)stream->port); break;
+            case STR_MEMBUF  : closemembuf((membuf_t *)stream->port); break;
         }
     }
     else {
@@ -2546,6 +2841,8 @@ extern int strread(stream_t *stream, unsigned char *buff, int n)
         case STR_NTRIPCLI: nr=readntrip ((ntrip_t  *)stream->port,buff,n,msg); break;
         case STR_NTRIPC_S:
         case STR_NTRIPC_C: nr=readntripc((ntripc_t *)stream->port,buff,n,msg); break;
+        case STR_UDPSVR  : nr=readudpsvr((udp_t    *)stream->port,buff,n,msg); break;
+        case STR_MEMBUF  : nr=readmembuf((membuf_t *)stream->port,buff,n,msg); break;
         case STR_FTP     : nr=readftp   ((ftp_t    *)stream->port,buff,n,msg); break;
         case STR_HTTP    : nr=readftp   ((ftp_t    *)stream->port,buff,n,msg); break;
         default:
@@ -2600,6 +2897,8 @@ extern int strwrite(stream_t *stream, unsigned char *buff, int n)
         case STR_NTRIPCLI: ns=writentrip ((ntrip_t  *)stream->port,buff,n,msg); break;
         case STR_NTRIPC_S:
         case STR_NTRIPC_C: ns=writentripc((ntripc_t *)stream->port,buff,n,msg); break;
+        case STR_UDPCLI  : ns=writeudpcli((udp_t    *)stream->port,buff,n,msg); break;
+        case STR_MEMBUF  : ns=writemembuf((membuf_t *)stream->port,buff,n,msg); break;
         case STR_FTP     :
         case STR_HTTP    :
         default:
@@ -2610,7 +2909,7 @@ extern int strwrite(stream_t *stream, unsigned char *buff, int n)
     tick=tickget(); if (ns>0) stream->tact=tick;
     
     if ((int)(tick-stream->tick_o)>tirate) {
-        stream->outr=(stream->outb-stream->outbt)*8000/(tick-stream->tick_o);
+        stream->outr=(int)((double)(stream->outb-stream->outbt)*8000/(tick-stream->tick_o));
         stream->tick_o=tick; stream->outbt=stream->outb;
     }
     strunlock(stream);
@@ -2685,6 +2984,9 @@ extern int strstat(stream_t *stream, char *msg)
         case STR_NTRIPCLI: state=statentrip ((ntrip_t  *)stream->port); break;
         case STR_NTRIPC_C:
         case STR_NTRIPC_S: state=statentripc((ntripc_t *)stream->port); break;
+        case STR_UDPSVR  : state=stateudpsvr((udp_t    *)stream->port); break;
+        case STR_UDPCLI  : state=stateudpcli((udp_t    *)stream->port); break;
+        case STR_MEMBUF  : state=statemembuf((membuf_t *)stream->port); break;
         case STR_FTP     : state=stateftp   ((ftp_t    *)stream->port); break;
         case STR_HTTP    : state=stateftp   ((ftp_t    *)stream->port); break;
         default:
@@ -2722,6 +3024,9 @@ extern int strstatx(stream_t *stream, char *msg)
         case STR_NTRIPCLI: state=statexntrip ((ntrip_t  *)stream->port,msg); break;
         case STR_NTRIPC_C:
         case STR_NTRIPC_S: state=statexntripc((ntripc_t *)stream->port,msg); break;
+        case STR_UDPSVR  : state=statexudpsvr((udp_t    *)stream->port,msg); break;
+        case STR_UDPCLI  : state=statexudpcli((udp_t    *)stream->port,msg); break;
+        case STR_MEMBUF  : state=statexmembuf((membuf_t *)stream->port,msg); break;
         case STR_FTP     : state=statexftp   ((ftp_t    *)stream->port,msg); break;
         case STR_HTTP    : state=statexftp   ((ftp_t    *)stream->port,msg); break;
         default:

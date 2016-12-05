@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------
 // rtknavi : real-time positioning ap
 //
-//          Copyright (C) 2007-2014 by T.TAKASU, All rights reserved.
+//          Copyright (C) 2007-2016 by T.TAKASU, All rights reserved.
 //
 // options : rtknavi [-t title][-i file]
 //
@@ -111,7 +111,7 @@ __fastcall TMainForm::TMainForm(TComponent* Owner)
     SvrCycle=SvrBuffSize=0;
     SolBuffSize=1000;
     for (int i=0;i<8;i++) {
-        StreamC[i]=Stream[i]=Format[i]=CmdEna[i][0]=CmdEna[i][1]=0;
+        StreamC[i]=Stream[i]=Format[i]=CmdEna[i][0]=CmdEna[i][1]=CmdEna[i][2]=0;
     }
     TimeSys=SolType=PlotType1=PlotType2=FreqType1=FreqType2=0;
     TrkType1=TrkType2=0;
@@ -618,7 +618,7 @@ void __fastcall TMainForm::BtnInputStrClick(TObject *Sender)
         /* Paths[0]:serial,[1]:tcp,[2]:file,[3]:ftp */
         for (j=0;j<4;j++) InputStrDialog->Paths[i][j]=Paths[i][j];
     }
-    for (i=0;i<3;i++) for (j=0;j<2;j++) {
+    for (i=0;i<3;i++) for (j=0;j<3;j++) {
         InputStrDialog->CmdEna   [i][j]=CmdEna   [i][j];
         InputStrDialog->Cmds     [i][j]=Cmds     [i][j];
         InputStrDialog->CmdEnaTcp[i][j]=CmdEnaTcp[i][j];
@@ -634,6 +634,7 @@ void __fastcall TMainForm::BtnInputStrClick(TObject *Sender)
     InputStrDialog->TimeStart =InTimeStart;
     InputStrDialog->NmeaPos[0]=NmeaPos[0];
     InputStrDialog->NmeaPos[1]=NmeaPos[1];
+    InputStrDialog->NmeaPos[2]=NmeaPos[2];
     
     if (InputStrDialog->ShowModal()!=mrOk) return;
     
@@ -644,7 +645,7 @@ void __fastcall TMainForm::BtnInputStrClick(TObject *Sender)
         RcvOpt [i]=InputStrDialog->RcvOpt[i];
         for (j=0;j<4;j++) Paths[i][j]=InputStrDialog->Paths[i][j];
     }
-    for (i=0;i<3;i++) for (j=0;j<2;j++) {
+    for (i=0;i<3;i++) for (j=0;j<3;j++) {
         CmdEna   [i][j]=InputStrDialog->CmdEna   [i][j];
         Cmds     [i][j]=InputStrDialog->Cmds     [i][j];
         CmdEnaTcp[i][j]=InputStrDialog->CmdEnaTcp[i][j];
@@ -660,6 +661,7 @@ void __fastcall TMainForm::BtnInputStrClick(TObject *Sender)
     InTimeStart=InputStrDialog->TimeStart;
     NmeaPos[0] =InputStrDialog->NmeaPos[0];
     NmeaPos[1] =InputStrDialog->NmeaPos[1];
+    NmeaPos[2] =InputStrDialog->NmeaPos[2];
 }
 // confirm overwrite --------------------------------------------------------
 int __fastcall TMainForm::ConfOverwrite(const char *path)
@@ -1115,7 +1117,8 @@ void __fastcall TMainForm::SvrStart(void)
         STR_SERIAL,STR_TCPCLI,STR_TCPSVR,STR_NTRIPSVR,STR_NTRIPC_C,STR_FILE
     };
     int i,strs[MAXSTRRTK]={0},sat,ex,stropt[8]={0};
-    char *paths[8],*cmds[3]={0},*rcvopts[3]={0},buff[1024],*p;
+    char *paths[8],*cmds[3]={0},*cmds_periodic[3]={0},*rcvopts[3]={0};
+    char buff[1024],*p;
     char file[1024],*type,errmsg[20148];
     FILE *fp;
     gtime_t time=timeget();
@@ -1228,17 +1231,19 @@ void __fastcall TMainForm::SvrStart(void)
     for (i=0;i<3;i++) {
         if (strs[i]==STR_SERIAL) {
             if (CmdEna[i][0]) cmds[i]=Cmds[i][0].c_str();
+            if (CmdEna[i][2]) cmds_periodic[i]=Cmds[i][2].c_str();
         }
         else if (strs[i]==STR_TCPCLI||strs[i]==STR_TCPSVR||
                  strs[i]==STR_NTRIPCLI) {
             if (CmdEnaTcp[i][0]) cmds[i]=CmdsTcp[i][0].c_str();
+            if (CmdEnaTcp[i][2]) cmds_periodic[i]=CmdsTcp[i][2].c_str();
         }
         rcvopts[i]=RcvOpt[i].c_str();
     }
     NmeaCycle=NmeaCycle<1000?1000:NmeaCycle;
     pos[0]=NmeaPos[0]*D2R;
     pos[1]=NmeaPos[1]*D2R;
-    pos[2]=0.0;
+    pos[2]=NmeaPos[2];
     pos2ecef(pos,nmeapos);
     
     strsetdir(LocalDirectory.c_str());
@@ -1273,8 +1278,8 @@ void __fastcall TMainForm::SvrStart(void)
     
     // start rtk server
     if (!rtksvrstart(&rtksvr,SvrCycle,SvrBuffSize,strs,paths,Format,NavSelect,
-                     cmds,rcvopts,NmeaCycle,NmeaReq,nmeapos,&PrcOpt,solopt,
-                     &monistr,errmsg)) {
+                     cmds,cmds_periodic,rcvopts,NmeaCycle,NmeaReq,nmeapos,
+                     &PrcOpt,solopt,&monistr,errmsg)) {
         trace(2,"rtksvrstart error %s\n",errmsg);
         traceclose();
         return;
@@ -1571,7 +1576,7 @@ void __fastcall TMainForm::UpdatePos(void)
         s[5].sprintf(L"%.3f m",len);
         s[6].sprintf(L"E:%6.3f N:%6.3f U:%6.3f m",SQRT(Qe[0]),SQRT(Qe[4]),SQRT(Qe[8]));
     }
-    s[7].sprintf(L"Age:%4.1f s Ratio:%4.1f # Sat:%2d",Age[PSol],Ratio[PSol],Nvsat[PSol]);
+    s[7].sprintf(L"Age:%4.1f s Ratio:%4.1f #Sat:%2d",Age[PSol],Ratio[PSol],Nvsat[PSol]);
     if (Ratio[PSol]>0.0) s[8].sprintf(L" R:%4.1f",Ratio[PSol]);
     
     for (i=0;i<8;i++) label[i]->Caption=s[i];
@@ -1906,7 +1911,7 @@ void __fastcall TMainForm::DrawSat(TCanvas *c, int w, int h, int x0, int y0,
     }
     c->Brush->Style=bsClear;
     dops(ns,azel,0.0,dop);
-    DrawText(c,x0+3,y0+h-15,s.sprintf(L"# Sat: %d/%d",ns,Nsat[index]),clGray,0);
+    DrawText(c,x0+3,y0+h-15,s.sprintf(L"#Sat:%2d/%2d",ns,Nsat[index]),clGray,0);
     DrawText(c,x0+w-3,y0+h-15,s.sprintf(L"GDOP: %.1f",dop[0]),clGray,2);
 }
 // draw baseline plot -------------------------------------------------------
@@ -1996,7 +2001,7 @@ void __fastcall TMainForm::DrawBL(TImage *plot, int w, int h)
     c->Brush->Color=col;
     c->Ellipse(pp.x-d2/2+2,pp.y-d2/2+2,pp.x+d2/2-1,pp.y+d2/2-1);
     c->Brush->Color=clWhite;
-    digit=len<10.0?3:(len<100.0?2:(len<1000.0?1:0));
+    digit=len<1000.0?3:(len<10000.0?2:(len<100000.0?1:0));
     DrawText(c,p.x,p.y ,s.sprintf(L"%.*f m",digit,len),clGray,1);
     DrawText(c,5,  h-15,s.sprintf(L"Y: %.1f%c",yaw*R2D,CHARDEG),clGray,0);
     DrawText(c,w-3,h-15,s.sprintf(L"P: %.1f%c",pitch*R2D,CHARDEG),clGray,2);
@@ -2419,14 +2424,14 @@ void __fastcall TMainForm::LoadOpt(void)
     for (i=0;i<3;i++) {
         RcvOpt [i]=ini->ReadString("stream",s.sprintf("rcvopt%d",i+1),"");
     }
-    for (i=0;i<3;i++) for (j=0;j<2;j++) {
+    for (i=0;i<3;i++) for (j=0;j<3;j++) {
         Cmds[i][j]=ini->ReadString("serial",s.sprintf("cmd_%d_%d",i,j),"");
         CmdEna[i][j]=ini->ReadInteger("serial",s.sprintf("cmdena_%d_%d",i,j),0);
         for (p=Cmds[i][j].c_str();*p;p++) {
             if ((p=strstr(p,"@@"))) strncpy(p,"\r\n",2); else break;
         }
     }
-    for (i=0;i<3;i++) for (j=0;j<2;j++) {
+    for (i=0;i<3;i++) for (j=0;j<3;j++) {
         CmdsTcp[i][j]=ini->ReadString("tcpip",s.sprintf("cmd_%d_%d",i,j),"");
         CmdEnaTcp[i][j]=ini->ReadInteger("tcpip",s.sprintf("cmdena_%d_%d",i,j),0);
         for (p=CmdsTcp[i][j].c_str();*p;p++) {
@@ -2553,6 +2558,7 @@ void __fastcall TMainForm::LoadOpt(void)
     LogSwapInterval =ini->ReadString ("setting","logswapinterval","");
     NmeaPos[0]      =ini->ReadFloat  ("setting","nmeapos1",      0.0);
     NmeaPos[1]      =ini->ReadFloat  ("setting","nmeapos2",      0.0);
+    NmeaPos[2]      =ini->ReadFloat  ("setting","nmeapos3",      0.0);
     FileSwapMargin  =ini->ReadInteger("setting","fswapmargin",    30);
     
     TimeSys         =ini->ReadInteger("setting","timesys",         0);
@@ -2663,14 +2669,14 @@ void __fastcall TMainForm::SaveOpt(void)
     for (i=0;i<3;i++) {
         ini->WriteString("stream",s.sprintf("rcvopt%d",i+1),RcvOpt[i]);
     }
-    for (i=0;i<3;i++) for (j=0;j<2;j++) {
+    for (i=0;i<3;i++) for (j=0;j<3;j++) {
         for (p=Cmds[i][j].c_str();*p;p++) {
             if ((p=strstr(p,"\r\n"))) strncpy(p,"@@",2); else break;
         }
         ini->WriteString ("serial",s.sprintf("cmd_%d_%d"   ,i,j),Cmds  [i][j]);
         ini->WriteInteger("serial",s.sprintf("cmdena_%d_%d",i,j),CmdEna[i][j]);
     }
-    for (i=0;i<3;i++) for (j=0;j<2;j++) {
+    for (i=0;i<3;i++) for (j=0;j<3;j++) {
         for (p=CmdsTcp[i][j].c_str();*p;p++) {
             if ((p=strstr(p,"\r\n"))) strncpy(p,"@@",2); else break;
         }
@@ -2796,6 +2802,7 @@ void __fastcall TMainForm::SaveOpt(void)
     ini->WriteString ("setting","logswapinterval",LogSwapInterval);
     ini->WriteFloat  ("setting","nmeapos1",   NmeaPos[0]         );
     ini->WriteFloat  ("setting","nmeapos2",   NmeaPos[1]         );
+    ini->WriteFloat  ("setting","nmeapos3",   NmeaPos[2]         );
     ini->WriteInteger("setting","fswapmargin",FileSwapMargin     );
     
     ini->WriteInteger("setting","timesys",    TimeSys            );
