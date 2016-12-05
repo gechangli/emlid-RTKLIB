@@ -647,7 +647,7 @@ static void prstatus(vt_t *vt)
     nsat1=svr.obs[1][0].n;
     rcvcount = svr.raw[0].obs.rcvcount;
     tmcount = svr.raw[0].obs.tmcount;
-    timevalid = svr.raw[0].obs.data[0].timevalid;
+    timevalid = svr.obs[0][0].data[0].timevalid;
     cputime=svr.cputime;
     prcout=svr.prcout;
     nave=svr.nave;
@@ -661,7 +661,7 @@ static void prstatus(vt_t *vt)
         rt[1]=floor(runtime/60.0); rt[2]=runtime-rt[1]*60.0;
     }
     for (i=0;i<3;i++) rtcm[i]=svr.rtcm[i];
-    time2str(svr.raw[0].obs.data[0].eventime,tmstr,9);
+    time2str(svr.obs[0][0].data[0].eventime,tmstr,9);
     rtksvrunlock(&svr);
     
     for (i=n=0;i<MAXSAT;i++) {
@@ -672,7 +672,6 @@ static void prstatus(vt_t *vt)
         n++;
     }
     dops(n,azel,0.0,dop);
-    
     vt_printf(vt,"\n%s%-28s: %s%s\n",ESC_BOLD,"Parameter","Value",ESC_RESET);
     vt_printf(vt,"%-28s: %s %s %s\n","rtklib version",VER_RTKLIB,PATCH_LEVEL,"by Emlid");
     vt_printf(vt,"%-28s: %s\n","rtk server state",svrstate[state]);
