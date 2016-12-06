@@ -1143,7 +1143,6 @@ static int execses(gtime_t ts, gtime_t te, double ti, const prcopt_t *popt,
     /* name time events file */
     namefiletm(outfiletm,outfile);
     /* write header to file with time marks */
-    strcat(tmsopt.prog, " by Emlid");
     outhead(outfiletm,infile,n,&popt_,&tmsopt);
 
     iobsu=iobsr=isbs=ilex=revs=aborts=0;
