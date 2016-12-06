@@ -56,7 +56,7 @@ extern "C" {
 
 /* constants -----------------------------------------------------------------*/
 
-#define VER_RTKLIB  "2.4.3 demo5"             /* library version */
+#define VER_RTKLIB  "2.4.3 Emlid"             /* library version */
 
 #define PATCH_LEVEL "b26"               /* patch level */
 

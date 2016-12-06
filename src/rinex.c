@@ -1910,7 +1910,6 @@ extern int outrnxobsh(FILE *fp, const rnxopt_t *opt, const nav_t *nav)
     
     timestr_rnx(date);
     strcpy(prog,opt->prog);
-    strcat(prog," Emlid");
     
     if (opt->rnxver<=2.99) { /* ver.2 */
         sys=opt->navsys==SYS_GPS?"G (GPS)":"M (MIXED)";
