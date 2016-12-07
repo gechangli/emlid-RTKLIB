@@ -95,7 +95,7 @@ static int timetype     =0;             /* time format (0:gpst,1:utc,2:jst,3:tow
 static int soltype      =0;             /* sol format (0:dms,1:deg,2:xyz,3:enu,4:pyl) */
 static int solflag      =2;             /* sol flag (1:std+2:age/ratio/ns) */
 static int strtype[]={                  /* stream types */
-    STR_SERIAL,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE
+    STR_FILE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE
 };
 static char strpath[8][MAXSTR]={"","","","","","","",""}; /* stream paths */
 static int strfmt[]={                   /* stream formats */
@@ -1304,7 +1304,7 @@ static void *con_thread(void *arg)
         
         /* output prompt */
         if (!vt_puts(con->vt,CMDPROMPT)) break;
-        
+
         /* input command */
         if (!vt_gets(con->vt,buff,sizeof(buff))) break;
         
@@ -1589,6 +1589,7 @@ int main(int argc, char **argv)
     
     resetsysopts();
     if (!loadopts(file,rcvopts)||!loadopts(file,sysopts)) {
+        return -1;
         fprintf(stderr,"no options file: %s. defaults used\n",file);
     }
     getsysopts(&prcopt,solopt,&filopt);
@@ -1604,6 +1605,19 @@ int main(int argc, char **argv)
     if (moniport>0&&!openmoni(moniport)) {
         fprintf(stderr,"monitor port open error: %d\n",moniport);
     }
+
+    signal(SIGINT, sigshut); /* keyboard interrupt */
+    signal(SIGTERM,sigshut); /* external shutdown signal */
+    signal(SIGUSR2,sigshut);
+    signal(SIGHUP ,SIG_IGN);
+    signal(SIGPIPE,SIG_IGN);
+    
+    /* start rtk server */
+    if (start) {
+        if (startsvr(NULL) == 0)
+            intflg = 1;
+    }
+
     if (port) {
         /* open socket for remote console */
         if ((sock=open_sock(port))<=0) {
@@ -1624,21 +1638,13 @@ int main(int argc, char **argv)
             return -1;
         }
     }
-    signal(SIGINT, sigshut); /* keyboard interrupt */
-    signal(SIGTERM,sigshut); /* external shutdown signal */
-    signal(SIGUSR2,sigshut);
-    signal(SIGHUP ,SIG_IGN);
-    signal(SIGPIPE,SIG_IGN);
-    
-    /* start rtk server */
-    if (start) {
-        startsvr(NULL);
-    }
+
     while (!intflg) {
         /* accept remote console connection */
         accept_sock(sock,con);
         sleepms(100);
     }
+
     /* stop rtk server */
     stopsvr(NULL);
     
@@ -1646,6 +1652,7 @@ int main(int argc, char **argv)
     for (i=0;i<MAXCON;i++) {
         con_close(con[i]);
     }
+
     if (moniport>0) closemoni();
     if (outstat>0) rtkclosestat();
     
