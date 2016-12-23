@@ -652,7 +652,8 @@ static void prstatus(vt_t *vt)
     nsat1=svr.obs[1][0].n;
     rcvcount = svr.raw[0].obs.rcvcount;
     tmcount = svr.raw[0].obs.tmcount;
-    timevalid = svr.obs[0][0].data[0].timevalid;
+    timevalid = svr.raw[0].obs.data[0].timevalid;
+    /* timevalid = svr.obs[0][0].data[0].timevalid; */
     cputime=svr.cputime;
     prcout=svr.prcout;
     nave=svr.nave;
@@ -666,7 +667,8 @@ static void prstatus(vt_t *vt)
         rt[1]=floor(runtime/60.0); rt[2]=runtime-rt[1]*60.0;
     }
     for (i=0;i<3;i++) rtcm[i]=svr.rtcm[i];
-    time2str(svr.obs[0][0].data[0].eventime,tmstr,9);
+    time2str(svr.raw[0].obs.data[0].eventime,tmstr,9);
+    /* time2str(svr.obs[0][0].data[0].eventime,tmstr,9); */
     rtksvrunlock(&svr);
     
     for (i=n=0;i<MAXSAT;i++) {
@@ -1604,6 +1606,10 @@ int main(int argc, char **argv)
     if (moniport>0&&!openmoni(moniport)) {
         fprintf(stderr,"monitor port open error: %d\n",moniport);
     }
+    /* start rtk server */
+    if (start) {
+        startsvr(NULL);
+    }
     if (port) {
         /* open socket for remote console */
         if ((sock=open_sock(port))<=0) {
@@ -1630,10 +1636,6 @@ int main(int argc, char **argv)
     signal(SIGHUP ,SIG_IGN);
     signal(SIGPIPE,SIG_IGN);
     
-    /* start rtk server */
-    if (start) {
-        startsvr(NULL);
-    }
     while (!intflg) {
         /* accept remote console connection */
         accept_sock(sock,con);
