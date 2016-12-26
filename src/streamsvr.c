@@ -47,18 +47,17 @@ static int is_stamsg(int msg)
     return msg==1005||msg==1006||msg==1007||msg==1008||msg==1033;
 }
 /* gtime to seconds ----------------------------------------------------------*/
-static inline double gtime2sec(gtime_t time)
+static double gtime2sec(gtime_t time)
 {
     return (double) time.time + time.sec;
 }
 /* test time interval --------------------------------------------------------*/
-static inline int is_tint(gtime_t time, gtime_t time_last_msg, double tint)
+static int is_tint(gtime_t time, gtime_t time_last_msg, double tint)
 {
-    if ( tint <= 0.0 ) return 1;
-	
-	double time_sec          = gtime2sec(time);
+    double time_sec          = gtime2sec(time);
     double time_last_msg_sec = gtime2sec(time_last_msg);
-
+    
+    if ( tint <= 0.0 ) return 1;
     return ( time_sec >= (time_last_msg_sec + 0.5 * tint) ); 
 }
 /* update time of last message recieved for obs messages --------------------*/
@@ -82,8 +81,8 @@ static void update_time_last_msg(gtime_t time, strconv_t *conv)
              
             if ( is_tint(time, time_last_msg, tint) ) {
 
-                if (time_sec - time_last_msg_sec > 2 * tint)
-	                time_last_msg_sec = tint * ( (long) (time_sec / tint + 0.5) );                                
+                if (time_sec - time_last_msg_sec > 1.5 * tint)
+                    time_last_msg_sec = tint * ( (long) (time_sec / tint + 0.5) );                                
                 else
                     time_last_msg_sec += tint;
 
