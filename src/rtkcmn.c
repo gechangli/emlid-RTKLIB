@@ -115,12 +115,18 @@
 *           2016/06/11 1.35 delete trace() in reppath() to avoid deadlock
 *           2016/07/01 1.36 support IRNSS
 *                           add leap second before 2017/1/1 00:00:00
-*           2016/07/29 1.37 nename api compress() -> rtk_uncompress()
-*                           nename api crc16()    -> rtk_crc16()
-*                           nename api crc24q()   -> rtk_crc24q()
-*                           nename api crc32()    -> rtk_crc32()
+*           2016/07/29 1.37 rename api compress() -> rtk_uncompress()
+*                           rename api crc16()    -> rtk_crc16()
+*                           rename api crc24q()   -> rtk_crc24q()
+*                           rename api crc32()    -> rtk_crc32()
+*           2016/08/20 1.38 fix type incompatibility in win64 environment
+*                           change constant _POSIX_C_SOURCE 199309 -> 199506
+*           2016/08/21 1.39 fix bug on week overflow in time2gpst()/gpst2time()
+*           2016/09/05 1.40 fix bug on invalid nav data read in readnav()
+*           2016/09/17 1.41 suppress warnings
+*           2016/09/19 1.42 modify api deg2dms() to consider numerical error
 *-----------------------------------------------------------------------------*/
-#define _POSIX_C_SOURCE 199309
+#define _POSIX_C_SOURCE 199506
 #include <stdarg.h>
 #include <ctype.h>
 #ifndef WIN32
@@ -139,9 +145,9 @@ static const char rcsid[]="$Id: rtkcmn.c,v 1.1 2008/07/17 21:48:06 ttaka Exp tta
 #define POLYCRC32   0xEDB88320u /* CRC32 polynomial */
 #define POLYCRC24Q  0x1864CFBu  /* CRC24Q polynomial */
 
-const static double gpst0[]={1980,1, 6,0,0,0}; /* gps time reference */
-const static double gst0 []={1999,8,22,0,0,0}; /* galileo system time reference */
-const static double bdt0 []={2006,1, 1,0,0,0}; /* beidou time reference */
+static const double gpst0[]={1980,1, 6,0,0,0}; /* gps time reference */
+static const double gst0 []={1999,8,22,0,0,0}; /* galileo system time reference */
+static const double bdt0 []={2006,1, 1,0,0,0}; /* beidou time reference */
 
 static double leaps[MAXLEAPS+1][7]={ /* leap seconds (y,m,d,h,m,s,utc-gpst) */
     {2017,1,1,0,0,0,-18},
@@ -183,8 +189,8 @@ EXPORT const double lam_carr[MAXFREQ]={ /* carrier wave length (m) */
 EXPORT const prcopt_t prcopt_default={ /* defaults processing options */
     PMODE_SINGLE,0,2,SYS_GPS,   /* mode,soltype,nf,navsys */
     15.0*D2R,{{0,0}},           /* elmin,snrmask */
-    0,1,1,1,                    /* sateph,modear,glomodear,bdsmodear */
-    5,0,10,1,                   /* maxout,minlock,minfix,armaxiter */
+    0,1,1,1,1,0,                /* sateph,modear,glomodear,gpsmodear,bdsmodear,arfilter */
+    5,0,2,2,10,1,                   /* maxout,minlock,minfixsats,minfix,armaxiter */
     0,0,0,0,                    /* estion,esttrop,dynamics,tidecorr */
     1,0,0,0,0,                  /* niter,codesmooth,intpref,sbascorr,sbassatsel */
     0,0,                        /* rovpos,refpos */
@@ -1128,14 +1134,18 @@ extern int filter(double *x, double *P, const double *H, const double *v,
     double *x_,*xp_,*P_,*Pp_,*H_;
     int i,j,k,info,*ix;
     
+    /* create list of non-zero states */
     ix=imat(n,1); for (i=k=0;i<n;i++) if (x[i]!=0.0&&P[i+i*n]>0.0) ix[k++]=i;
     x_=mat(k,1); xp_=mat(k,1); P_=mat(k,k); Pp_=mat(k,k); H_=mat(k,m);
+    /* compress array by removing zero elements to save computation time */
     for (i=0;i<k;i++) {
         x_[i]=x[ix[i]];
         for (j=0;j<k;j++) P_[i+j*k]=P[ix[i]+ix[j]*n];
         for (j=0;j<m;j++) H_[i+j*k]=H[ix[i]+j*n];
     }
+    /* do kalman filter state update on compressed arrays */
     info=filter_(x_,P_,H_,v,R,k,m,xp_,Pp_);
+    /* copy values from compressed arrays back to full arrays */
     for (i=0;i<k;i++) {
         x[ix[i]]=xp_[i];
         for (j=0;j<k;j++) P[ix[i]+ix[j]*n]=Pp_[i+j*k];
@@ -1291,7 +1301,7 @@ extern gtime_t gpst2time(int week, double sec)
     gtime_t t=epoch2time(gpst0);
     
     if (sec<-1E9||1E9<sec) sec=0.0;
-    t.time+=86400*7*week+(int)sec;
+    t.time+=(time_t)86400*7*week+(int)sec;
     t.sec=sec-(int)sec;
     return t;
 }
@@ -1308,7 +1318,7 @@ extern double time2gpst(gtime_t t, int *week)
     int w=(int)(sec/(86400*7));
     
     if (week) *week=w;
-    return (double)(sec-w*86400*7)+t.sec;
+    return (double)(sec-(double)w*86400*7)+t.sec;
 }
 /* galileo system time to time -------------------------------------------------
 * convert week and tow in galileo system time (gst) to gtime_t struct
@@ -1321,7 +1331,7 @@ extern gtime_t gst2time(int week, double sec)
     gtime_t t=epoch2time(gst0);
     
     if (sec<-1E9||1E9<sec) sec=0.0;
-    t.time+=86400*7*week+(int)sec;
+    t.time+=(time_t)86400*7*week+(int)sec;
     t.sec=sec-(int)sec;
     return t;
 }
@@ -1338,7 +1348,7 @@ extern double time2gst(gtime_t t, int *week)
     int w=(int)(sec/(86400*7));
     
     if (week) *week=w;
-    return (double)(sec-w*86400*7)+t.sec;
+    return (double)(sec-(double)w*86400*7)+t.sec;
 }
 /* beidou time (bdt) to time ---------------------------------------------------
 * convert week and tow in beidou time (bdt) to gtime_t struct
@@ -1351,7 +1361,7 @@ extern gtime_t bdt2time(int week, double sec)
     gtime_t t=epoch2time(bdt0);
     
     if (sec<-1E9||1E9<sec) sec=0.0;
-    t.time+=86400*7*week+(int)sec;
+    t.time+=(time_t)86400*7*week+(int)sec;
     t.sec=sec-(int)sec;
     return t;
 }
@@ -1368,7 +1378,7 @@ extern double time2bdt(gtime_t t, int *week)
     int w=(int)(sec/(86400*7));
     
     if (week) *week=w;
-    return (double)(sec-w*86400*7)+t.sec;
+    return (double)(sec-(double)w*86400*7)+t.sec;
 }
 /* add time --------------------------------------------------------------------
 * add time to gtime_t struct
@@ -1475,7 +1485,7 @@ static int read_leaps_usno(FILE *fp)
         ls[n][0]=y;
         ls[n][1]=m;
         ls[n][2]=d;
-        ls[n++][6]=19.0-tai_utc;
+        ls[n++][6]=(char)(19.0-tai_utc);
     }
     for (i=0;i<n;i++) for (j=0;j<7;j++) {
         leaps[i][j]=ls[n-i-1][j];
@@ -1698,14 +1708,25 @@ extern void sleepms(int ms)
 * convert degree to degree-minute-second
 * args   : double deg       I   degree
 *          double *dms      O   degree-minute-second {deg,min,sec}
+*          int    ndec      I   number of decimals of second
 * return : none
 *-----------------------------------------------------------------------------*/
-extern void deg2dms(double deg, double *dms)
+extern void deg2dms(double deg, double *dms, int ndec)
 {
     double sign=deg<0.0?-1.0:1.0,a=fabs(deg);
+    double unit=pow(0.1,ndec);
     dms[0]=floor(a); a=(a-dms[0])*60.0;
     dms[1]=floor(a); a=(a-dms[1])*60.0;
-    dms[2]=a; dms[0]*=sign;
+    dms[2]=floor(a/unit+0.5)*unit;
+    if (dms[2]>=60.0) {
+        dms[2]=0.0;
+        dms[1]+=1.0;
+        if (dms[1]>=60.0) {
+            dms[1]=0.0;
+            dms[0]+=1.0;
+        }
+    }
+    dms[0]*=sign;
 }
 /* convert deg-min-sec to degree -----------------------------------------------
 * convert degree-minute-second to degree
@@ -2677,6 +2698,7 @@ extern int readnav(const char *file, nav_t *nav)
     eph_t eph0={0};
     geph_t geph0={0};
     char buff[4096],*p;
+    long toe_time,tof_time,toc_time,ttr_time;
     int i,sat,prn;
     
     trace(3,"loadnav: file=%s\n",file);
@@ -2700,24 +2722,28 @@ extern int readnav(const char *file, nav_t *nav)
         if (satsys(sat,&prn)==SYS_GLO) {
             nav->geph[prn-1]=geph0;
             nav->geph[prn-1].sat=sat;
+            toe_time=tof_time=0;
             sscanf(p+1,"%d,%d,%d,%d,%d,%ld,%ld,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,"
                         "%lf,%lf,%lf,%lf",
                    &nav->geph[prn-1].iode,&nav->geph[prn-1].frq,&nav->geph[prn-1].svh,
                    &nav->geph[prn-1].sva,&nav->geph[prn-1].age,
-                   &nav->geph[prn-1].toe.time,&nav->geph[prn-1].tof.time,
+                   &toe_time,&tof_time,
                    &nav->geph[prn-1].pos[0],&nav->geph[prn-1].pos[1],&nav->geph[prn-1].pos[2],
                    &nav->geph[prn-1].vel[0],&nav->geph[prn-1].vel[1],&nav->geph[prn-1].vel[2],
                    &nav->geph[prn-1].acc[0],&nav->geph[prn-1].acc[1],&nav->geph[prn-1].acc[2],
                    &nav->geph[prn-1].taun  ,&nav->geph[prn-1].gamn  ,&nav->geph[prn-1].dtaun);
+            nav->geph[prn-1].toe.time=toe_time;
+            nav->geph[prn-1].tof.time=tof_time;
         }
         else {
             nav->eph[sat-1]=eph0;
             nav->eph[sat-1].sat=sat;
+            toe_time=toc_time=ttr_time=0;
             sscanf(p+1,"%d,%d,%d,%d,%ld,%ld,%ld,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,"
                         "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%d,%d",
                    &nav->eph[sat-1].iode,&nav->eph[sat-1].iodc,&nav->eph[sat-1].sva ,
-                   &nav->eph[sat-1].svh ,&nav->eph[sat-1].toe.time,
-                   &nav->eph[sat-1].toc.time,&nav->eph[sat-1].ttr.time,
+                   &nav->eph[sat-1].svh ,
+                   &toe_time,&toc_time,&ttr_time,
                    &nav->eph[sat-1].A   ,&nav->eph[sat-1].e   ,&nav->eph[sat-1].i0  ,
                    &nav->eph[sat-1].OMG0,&nav->eph[sat-1].omg ,&nav->eph[sat-1].M0  ,
                    &nav->eph[sat-1].deln,&nav->eph[sat-1].OMGd,&nav->eph[sat-1].idot,
@@ -2726,6 +2752,9 @@ extern int readnav(const char *file, nav_t *nav)
                    &nav->eph[sat-1].toes,&nav->eph[sat-1].fit ,&nav->eph[sat-1].f0  ,
                    &nav->eph[sat-1].f1  ,&nav->eph[sat-1].f2  ,&nav->eph[sat-1].tgd[0],
                    &nav->eph[sat-1].code, &nav->eph[sat-1].flag);
+            nav->eph[sat-1].toe.time=toe_time;
+            nav->eph[sat-1].toc.time=toc_time;
+            nav->eph[sat-1].ttr.time=ttr_time;
         }
     }
     fclose(fp);
@@ -2905,10 +2934,10 @@ extern void traceobs(int level, const obsd_t *obs, int n)
     for (i=0;i<n;i++) {
         time2str(obs[i].time,str,3);
         satno2id(obs[i].sat,id);
-        fprintf(fp_trace," (%2d) %s %-3s rcv%d %13.3f %13.3f %13.3f %13.3f %d %d %d %d %3.1f %3.1f\n",
+        fprintf(fp_trace," (%2d) %s %-3s rcv%d %13.3f %13.3f %13.3f %13.3f %d %d %d %d %x %x %3.1f %3.1f\n",
               i+1,str,id,obs[i].rcv,obs[i].L[0],obs[i].L[1],obs[i].P[0],
               obs[i].P[1],obs[i].LLI[0],obs[i].LLI[1],obs[i].code[0],
-              obs[i].code[1],obs[i].SNR[0]*0.25,obs[i].SNR[1]*0.25);
+              obs[i].code[1],obs[i].qualL[0],obs[i].qualP[0],obs[i].SNR[0]*0.25,obs[i].SNR[1]*0.25);
     }
     fflush(fp_trace);
 }
@@ -3148,7 +3177,7 @@ extern void createdir(const char *path)
 /* replace string ------------------------------------------------------------*/
 static int repstr(char *str, const char *pat, const char *rep)
 {
-    int len=strlen(pat);
+    int len=(int)strlen(pat);
     char buff[1024],*p,*q,*r;
     
     for (p=str,r=buff;*p;p=q+len) {

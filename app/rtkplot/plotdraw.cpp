@@ -102,19 +102,21 @@ void __fastcall TPlot::DrawTrk(int level)
     if (BtnShowMap->Down) { // map
         DrawTrkMap(level);
     }
-    if (level) { // center +
-        GraphT->GetPos(p1,p2);
-        p1.x=(p1.x+p2.x)/2;
-        p1.y=(p1.y+p2.y)/2;
-        DrawMark(GraphT,p1,5,CColor[1],20,0);
-    }
-    if (ShowGLabel>=3) { // circles
-        GraphT->XLPos=7; GraphT->YLPos=7;
-        GraphT->DrawCircles(ShowGLabel==4);
-    }
-    else if (ShowGLabel>=1) { // grid
-        GraphT->XLPos=2; GraphT->YLPos=4;
-        GraphT->DrawAxis(ShowLabel,ShowGLabel==2);
+    if (BtnShowGrid->Down) { // grid
+        if (level) { // center +
+            GraphT->GetPos(p1,p2);
+            p1.x=(p1.x+p2.x)/2;
+            p1.y=(p1.y+p2.y)/2;
+            DrawMark(GraphT,p1,5,CColor[1],20,0);
+        }
+        if (ShowGLabel>=3) { // circles
+            GraphT->XLPos=7; GraphT->YLPos=7;
+            GraphT->DrawCircles(ShowGLabel==4);
+        }
+        else if (ShowGLabel>=1) { // grid
+            GraphT->XLPos=2; GraphT->YLPos=4;
+            GraphT->DrawAxis(ShowLabel,ShowGLabel==2);
+        }
     }
     if (norm(OPos,3)>0.0) {
         ecef2pos(OPos,opos);
@@ -254,19 +256,20 @@ void __fastcall TPlot::DrawTrk(int level)
         DrawMark(GraphT,p1,5,CColor[2],20,0);
     }
     // update geview and gmview center
-    if (level&&norm(OPos,3)>0.0) {
-        GraphT->GetCent(xt,yt);
-        GraphT->ToPoint(xt,yt,p1);
-        GraphT->ToPos(p1,enu[0],enu[1]);
-        ecef2pos(OPos,opos);
-        enu2ecef(opos,enu,rr);
-        for (i=0;i<3;i++) rr[i]+=OPos[i];
-        ecef2pos(rr,cent);
-        
-        GoogleEarthView->SetCent(cent[0]*R2D,cent[1]*R2D);
-        GoogleMapView->SetCent(cent[0]*R2D,cent[1]*R2D);
+    if (level) {
+        if (norm(OPos,3)>0.0) {
+            GraphT->GetCent(xt,yt);
+            GraphT->ToPoint(xt,yt,p1);
+            GraphT->ToPos(p1,enu[0],enu[1]);
+            ecef2pos(OPos,opos);
+            enu2ecef(opos,enu,rr);
+            for (i=0;i<3;i++) rr[i]+=OPos[i];
+            ecef2pos(rr,cent);
+            GoogleEarthView->SetCent(cent[0]*R2D,cent[1]*R2D);
+            GoogleMapView  ->SetCent(cent[0]*R2D,cent[1]*R2D);
+        }
+        Refresh_GEView();
     }
-    Refresh_GEView();
 }
 // draw map-image on track-plot ---------------------------------------------
 void __fastcall TPlot::DrawTrkImage(int level)
@@ -311,7 +314,7 @@ void __fastcall TPlot::DrawTrkMap(int level)
     gtime_t time={0};
     TColor color;
     TPoint *p,p1;
-    double xyz[3],S,xl[2],yl[2],enu[6][3]={{0}},opos[3],pos[3],rr[3];
+    double xyz[3],S,xl[2],yl[2],enu[8][3]={{0}},opos[3],pos[3],rr[3];
     double bound[4]={PI/2.0,-PI/2.0,PI,-PI};
     int i,j,n,m;
     
@@ -325,8 +328,17 @@ void __fastcall TPlot::DrawTrkMap(int level)
     enu[3][0]=xl[1]; enu[3][1]=yl[1];
     enu[4][0]=(xl[0]+xl[1])/2.0; enu[4][1]=yl[0];
     enu[5][0]=(xl[0]+xl[1])/2.0; enu[5][1]=yl[1];
+    enu[6][0]=xl[0]; enu[6][1]=(yl[0]+yl[1])/2.0;
+    enu[7][0]=xl[1]; enu[7][1]=(yl[0]+yl[1])/2.0;
     ecef2pos(OPos,opos);
-    for (i=0;i<6;i++) {
+    for (i=0;i<8;i++) {
+        if (norm(enu[i],2)>=1000000.0) {
+            bound[0]=-PI/2.0;
+            bound[1]= PI/2.0;
+            bound[2]=-PI;
+            bound[3]= PI;
+            break;
+        }
         enu2ecef(opos,enu[i],rr);
         for (j=0;j<3;j++) rr[j]+=OPos[j];
         ecef2pos(rr,pos);
@@ -343,6 +355,7 @@ void __fastcall TPlot::DrawTrkMap(int level)
                 pnt=(gis_pnt_t *)data->data;
                 if (!P_IN_B(pnt->pos,bound)) continue;
                 PosToXyz(time,pnt->pos,0,xyz);
+                if (xyz[2]<-RE_WGS84) continue;
                 GraphT->ToPoint(xyz[0],xyz[1],p1);
                 DrawMark(GraphT,p1,1,CColor[2],6,0);
                 DrawMark(GraphT,p1,0,CColor[2],2,0);
@@ -355,6 +368,13 @@ void __fastcall TPlot::DrawTrkMap(int level)
                 p=new TPoint [n];
                 for (j=m=0;j<n;j++) {
                     PosToXyz(time,poly->pos+j*3,0,xyz);
+                    if (xyz[2]<-RE_WGS84) {
+                        if (m>1) {
+                            GraphT->DrawPoly(p,m,MapColor[i],0);
+                            m=0;
+                        }
+                        continue;
+                    }
                     GraphT->ToPoint(xyz[0],xyz[1],p1);
                     if (m==0||p1.x!=p[m-1].x||p1.y!=p[m-1].y) {
                         p[m++]=p1;
@@ -371,6 +391,9 @@ void __fastcall TPlot::DrawTrkMap(int level)
                 p=new TPoint [n];
                 for (j=m=0;j<n;j++) {
                     PosToXyz(time,polygon->pos+j*3,0,xyz);
+                    if (xyz[2]<-RE_WGS84) {
+                        continue;
+                    }
                     GraphT->ToPoint(xyz[0],xyz[1],p1);
                     if (m==0||p1.x!=p[m-1].x||p1.y!=p[m-1].y) {
                         p[m++]=p1;
@@ -971,26 +994,31 @@ void __fastcall TPlot::DrawObsSlip(double *yp)
     
     code=ObsType->ItemIndex?ObsTypeText.c_str()+1:"";
     
-    for (i=0;i<Obs.n;i++) {
-        if (El[i]<ElMask*D2R) continue;
-        if (ElMaskP&&El[i]<ElMaskData[(int)(Az[i]*R2D+0.5)]) continue;
-        obs=&Obs.data[i];
-        if (!SatSel[obs->sat-1]) continue;
-            
-        if (!GraphR->ToPoint(TimePos(obs->time),yp[obs->sat-1],ps[0])) continue;
-        ps[1].x=ps[0].x;
-        ps[1].y=ps[0].y+MarkSize*3/2+1;
-        ps[0].y=ps[0].y-MarkSize*3/2;
-        
-        if (ShowHalfC) {
+    if (ShowHalfC) {
+        for (i=0;i<Obs.n;i++) {
+            if (El[i]<ElMask*D2R) continue;
+            if (ElMaskP&&El[i]<ElMaskData[(int)(Az[i]*R2D+0.5)]) continue;
+            obs=&Obs.data[i];
+            if (!SatSel[obs->sat-1]) continue;
             slip=0;
             for (j=0;j<NFREQ+NEXOBS;j++) {
                 if ((!*code||strstr(code2obs(obs->code[j],NULL),code))&&
                     (obs->LLI[j]&2)) slip=1;
             }
-            if (slip) GraphR->DrawPoly(ps,2,MColor[0][0],0);
+            if (!slip) continue;
+            if (!GraphR->ToPoint(TimePos(obs->time),yp[obs->sat-1],ps[0])) continue;
+            ps[1].x=ps[0].x;
+            ps[1].y=ps[0].y+MarkSize*3/2+1;
+            ps[0].y=ps[0].y-MarkSize*3/2;
+            GraphR->DrawPoly(ps,2,MColor[0][0],0);
         }
-        if (ShowSlip) {
+    }
+    if (ShowSlip) {
+        for (i=0;i<Obs.n;i++) {
+            if (El[i]<ElMask*D2R) continue;
+            if (ElMaskP&&El[i]<ElMaskData[(int)(Az[i]*R2D+0.5)]) continue;
+            obs=&Obs.data[i];
+            if (!SatSel[obs->sat-1]) continue;
             slip=0;
             if (ShowSlip==2) { // LLI
                 for (j=0;j<NFREQ+NEXOBS;j++) {
@@ -1006,7 +1034,12 @@ void __fastcall TPlot::DrawObsSlip(double *yp)
                     gfp[obs->sat-1]=gf;
                 }
             }
-            if (slip) GraphR->DrawPoly(ps,2,MColor[0][5],0);
+            if (!slip) continue;
+            if (!GraphR->ToPoint(TimePos(obs->time),yp[obs->sat-1],ps[0])) continue;
+            ps[1].x=ps[0].x;
+            ps[1].y=ps[0].y+MarkSize*3/2+1;
+            ps[0].y=ps[0].y-MarkSize*3/2;
+            GraphR->DrawPoly(ps,2,MColor[0][5],0);
         }
     }
 }
@@ -1510,6 +1543,7 @@ void __fastcall TPlot::DrawSnr(int level)
             GraphG[j]->SetCent(xp-off,yc);
         }
     }
+    j=0;
     for (i=0;i<3;i++) if (btn[i]->Down) j=i;
     for (i=0;i<3;i++) {
         if (!btn[i]->Down) continue;
@@ -1640,6 +1674,7 @@ void __fastcall TPlot::DrawSnrE(int level)
     
     yl[1][0]=-MaxMP; yl[1][1]=MaxMP;
     
+    j=0;
     for (i=0;i<2;i++) if (btn[i]->Down) j=i;
     for (i=0;i<2;i++) {
         if (!btn[i]->Down) continue;
@@ -2072,7 +2107,6 @@ void __fastcall TPlot::Refresh_GEView(void)
                 else if (GEHeading> 180.0) GEHeading-=360.0;
             }
             GoogleEarthView->SetHeading(GEHeading);
-            
             delete vel;
         }
     }

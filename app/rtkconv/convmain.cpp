@@ -14,12 +14,6 @@
 //           2011/06/10  1.2 rtklib 2.4.1
 //---------------------------------------------------------------------------
 #include <vcl.h>
-#ifdef TCPP
-#include <vcl\inifiles.hpp>
-#else
-#include <inifiles.hpp>
-#endif
-#include "wstring.h"
 
 #pragma hdrstop
 
@@ -618,6 +612,45 @@ void __fastcall TMainWindow::TimeH2UDChangingEx(TObject *Sender,
     TimeH2->Text=s.sprintf("%02d:%02d:%02d",sec/3600,(sec%3600)/60,sec%60);
     TimeH2->SelStart=p>5||p==0?8:(p>2?5:2);
 }
+// callback on time-start-ymd key press -------------------------------------
+void __fastcall TMainWindow::TimeY1KeyDown(TObject *Sender, WORD &Key, TShiftState Shift)
+{
+    bool allowchange;
+    if (Key==VK_UP||Key==VK_DOWN) {
+        TimeY1UDChangingEx(Sender,allowchange,0,Key==VK_UP?updUp:updDown);
+        Key=0;
+    }
+}
+// callback on time-start-hms key press -------------------------------------
+void __fastcall TMainWindow::TimeH1KeyDown(TObject *Sender, WORD &Key, TShiftState Shift)
+
+{
+    bool allowchange;
+    if (Key==VK_UP||Key==VK_DOWN) {
+        TimeH1UDChangingEx(Sender,allowchange,0,Key==VK_UP?updUp:updDown);
+        Key=0;
+    }
+}
+// callback on time-end-ymd key press ---------------------------------------
+void __fastcall TMainWindow::TimeY2KeyDown(TObject *Sender, WORD &Key, TShiftState Shift)
+
+{
+    bool allowchange;
+    if (Key==VK_UP||Key==VK_DOWN) {
+        TimeY2UDChangingEx(Sender,allowchange,0,Key==VK_UP?updUp:updDown);
+        Key=0;
+    }
+}
+// callback on time-end-hms key press ---------------------------------------
+void __fastcall TMainWindow::TimeH2KeyDown(TObject *Sender, WORD &Key, TShiftState Shift)
+
+{
+    bool allowchange;
+    if (Key==VK_UP||Key==VK_DOWN) {
+        TimeH2UDChangingEx(Sender,allowchange,0,Key==VK_UP?updUp:updDown);
+        Key=0;
+    }
+}
 // replace keywords in file path --------------------------------------------
 AnsiString __fastcall TMainWindow::RepPath(AnsiString File)
 {
@@ -800,7 +833,7 @@ void __fastcall TMainWindow::ConvertFile(void)
     p+=sprintf(p,"format: %s",formatstrs[format]);
     if (*rnxopt.rcvopt) sprintf(p,", option: %s",rnxopt.rcvopt);
     for (i=0;i<2;i++) strncpy(rnxopt.comment[i+2],Comment[i].c_str(),63);
-    for (i=0;i<6;i++) strcpy(rnxopt.mask[i],CodeMask[i].c_str());
+    for (i=0;i<7;i++) strcpy(rnxopt.mask[i],CodeMask[i].c_str());
     rnxopt.autopos=AutoPos;
     rnxopt.scanobs=ScanObs;
     rnxopt.halfcyc=HalfCyc;
@@ -878,7 +911,7 @@ void __fastcall TMainWindow::ConvertFile(void)
 void __fastcall TMainWindow::LoadOpt(void)
 {
     TIniFile *ini=new TIniFile(IniFile);
-    AnsiString mask="1111111111111111111111111111111111111111111";
+    AnsiString mask="1111111111111111111111111111111111111111111111111111111";
     
     RnxVer              =ini->ReadInteger("opt","rnxver",      0);
     RnxFile             =ini->ReadInteger("opt","rnxfile",     0);
@@ -916,6 +949,7 @@ void __fastcall TMainWindow::LoadOpt(void)
     CodeMask[3]         =ini->ReadString ("opt","codemask_4",mask);
     CodeMask[4]         =ini->ReadString ("opt","codemask_5",mask);
     CodeMask[5]         =ini->ReadString ("opt","codemask_6",mask);
+    CodeMask[6]         =ini->ReadString ("opt","codemask_7",mask);
     AutoPos             =ini->ReadInteger("opt","autopos",     0);
     ScanObs             =ini->ReadInteger("opt","scanobs",     0);
     HalfCyc             =ini->ReadInteger("opt","halfcyc",     0);
@@ -961,6 +995,7 @@ void __fastcall TMainWindow::LoadOpt(void)
     TTextViewer::FontD->Size=ini->ReadInteger("viewer","fontsize",9);
     
     CmdPostExe         =ini->ReadString  ("set","cmdpostexe","rtkpost_mkl");
+    Width              =ini->ReadInteger ("window","width", 488);
     
     delete ini;
     
@@ -1007,6 +1042,7 @@ void __fastcall TMainWindow::SaveOpt(void)
     ini->WriteString ("opt","codemask_4", CodeMask[3]);
     ini->WriteString ("opt","codemask_5", CodeMask[4]);
     ini->WriteString ("opt","codemask_6", CodeMask[5]);
+    ini->WriteString ("opt","codemask_7", CodeMask[6]);
     ini->WriteInteger("opt","autopos",    AutoPos);
     ini->WriteInteger("opt","scanobs",    ScanObs);
     ini->WriteInteger("opt","halfcyc",    HalfCyc);
@@ -1049,7 +1085,54 @@ void __fastcall TMainWindow::SaveOpt(void)
     ini->WriteInteger("viewer","color2",  (int)TTextViewer::Color2);
     ini->WriteString ("viewer","fontname",TTextViewer::FontD->Name);
     ini->WriteInteger("viewer","fontsize",TTextViewer::FontD->Size);
+    ini->WriteInteger("window","width",               Width);
     delete ini;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainWindow::Panel4Resize(TObject *Sender)
+{
+	TBitBtn *btns[]={BtnPlot,BtnPost,BtnOptions,BtnConvert,BtnExit};
+	int w=(Panel4->Width-2)/5;
+	
+	for (int i=0;i<5;i++) {
+		btns[i]->Width=w;
+		btns[i]->Left=i*w+1;
+	}
+	BtnAbort->Width=BtnConvert->Width;
+	BtnAbort->Left =BtnConvert->Left;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainWindow::Panel2Resize(TObject *Sender)
+{
+	TButton *btns1[]={
+		BtnOutFile1,BtnOutFile2,BtnOutFile3,BtnOutFile4,BtnOutFile5,
+		BtnOutFile6,BtnOutFile7
+	};
+	TSpeedButton *btns2[]={
+		BtnOutFileView1,BtnOutFileView2,BtnOutFileView3,BtnOutFileView4,
+		BtnOutFileView5,BtnOutFileView6,BtnOutFileView7
+	};
+	TEdit *inps[]={
+		OutFile1,OutFile2,OutFile3,OutFile4,OutFile5,OutFile6,OutFile7
+	};
+	int w=Panel2->Width;
+	
+	BtnInFile->Left=w-BtnInFile->Width-5;
+	BtnInFileView->Left=w-BtnInFile->Width-BtnInFileView->Width-5;
+	InFile->Width=w-BtnInFile->Width-BtnInFileView->Width-6-InFile->Left;
+	
+	Format->Left=w-Format->Width-5;
+	LabelFormat->Left=Format->Left+3;
+	BtnOutDir->Left=w-BtnOutDir->Width-Format->Width-6;
+	OutDir->Width=w-BtnOutDir->Width-Format->Width-7-OutDir->Left;
+	
+	for (int i=0;i<7;i++) {
+		btns1[i]->Left=w-btns1[i]->Width-5;
+		btns2[i]->Left=w-btns1[i]->Width-btns2[i]->Width-5;
+		inps[i]->Width=w-btns1[i]->Width-btns2[i]->Width-6-inps[i]->Left;
+	}
 }
 //---------------------------------------------------------------------------
 

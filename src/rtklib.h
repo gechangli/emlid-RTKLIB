@@ -56,12 +56,12 @@ extern "C" {
 
 /* constants -----------------------------------------------------------------*/
 
-#define VER_RTKLIB  "2.4.3"             /* library version */
+#define VER_RTKLIB  "2.4.3 Emlid"             /* library version */
 
-#define PATCH_LEVEL "b16"               /* patch level */
+#define PATCH_LEVEL "b26"               /* patch level */
 
 #define COPYRIGHT_RTKLIB \
-            "Copyright (C) 2007-2016 by T.Takasu\nAll rights reserved."
+            "Copyright (C) 2007-2016 T.Takasu\nAll rights reserved."
 
 #define PI          3.1415926535897932  /* pi */
 #define D2R         (PI/180.0)          /* deg to rad */
@@ -111,7 +111,7 @@ extern "C" {
 #define SYS_GAL     0x08                /* navigation system: Galileo */
 #define SYS_QZS     0x10                /* navigation system: QZSS */
 #define SYS_CMP     0x20                /* navigation system: BeiDou */
-#define SYS_IRN     0x40                /* navigation system: BeiDou */
+#define SYS_IRN     0x40                /* navigation system: IRNS */
 #define SYS_LEO     0x80                /* navigation system: LEO */
 #define SYS_ALL     0xFF                /* navigation system: all */
 
@@ -256,6 +256,7 @@ extern "C" {
 #define MAXNRPOS    16                  /* max number of reference positions */
 #define MAXLEAPS    64                  /* max number of leap seconds table */
 #define MAXGISLAYER 32                  /* max number of GIS data layers */
+#define MAXRCVCMD   4096                /* max length of receiver commands */
 
 #define RNX2VER     2.10                /* RINEX ver.2 default output version */
 #define RNX3VER     3.00                /* RINEX ver.3 default output version */
@@ -337,11 +338,12 @@ extern "C" {
 #define PMODE_DGPS   1                  /* positioning mode: DGPS/DGNSS */
 #define PMODE_KINEMA 2                  /* positioning mode: kinematic */
 #define PMODE_STATIC 3                  /* positioning mode: static */
-#define PMODE_MOVEB  4                  /* positioning mode: moving-base */
-#define PMODE_FIXED  5                  /* positioning mode: fixed */
-#define PMODE_PPP_KINEMA 6              /* positioning mode: PPP-kinemaric */
-#define PMODE_PPP_STATIC 7              /* positioning mode: PPP-static */
-#define PMODE_PPP_FIXED 8               /* positioning mode: PPP-fixed */
+#define PMODE_STATIC_START 4            /* positioning mode: static */
+#define PMODE_MOVEB  5                  /* positioning mode: moving-base */
+#define PMODE_FIXED  6                  /* positioning mode: fixed */
+#define PMODE_PPP_KINEMA 7              /* positioning mode: PPP-kinemaric */
+#define PMODE_PPP_STATIC 8              /* positioning mode: PPP-static */
+#define PMODE_PPP_FIXED 9               /* positioning mode: PPP-fixed */
 
 #define SOLF_LLH    0                   /* solution format: lat/lon/height */
 #define SOLF_XYZ    1                   /* solution format: x/y/z-ecef */
@@ -413,13 +415,15 @@ extern "C" {
 #define STR_FILE     2                  /* stream type: file */
 #define STR_TCPSVR   3                  /* stream type: TCP server */
 #define STR_TCPCLI   4                  /* stream type: TCP client */
-#define STR_UDP      5                  /* stream type: UDP stream */
 #define STR_NTRIPSVR 6                  /* stream type: NTRIP server */
 #define STR_NTRIPCLI 7                  /* stream type: NTRIP client */
 #define STR_FTP      8                  /* stream type: ftp */
 #define STR_HTTP     9                  /* stream type: http */
-#define STR_NTRIPCAS_S 10               /* stream type: NTRIP caster server */
-#define STR_NTRIPCAS_C 11               /* stream type: NTRIP caster client */
+#define STR_NTRIPC_S 10                 /* stream type: NTRIP caster server */
+#define STR_NTRIPC_C 11                 /* stream type: NTRIP caster client */
+#define STR_UDPSVR   12                 /* stream type: UDP server */
+#define STR_UDPCLI   13                 /* stream type: UDP server */
+#define STR_MEMBUF   14                 /* stream type: memory buffer */
 
 #define STRFMT_RTCM2 0                  /* stream format: RTCM 2 */
 #define STRFMT_RTCM3 1                  /* stream format: RTCM 3 */
@@ -523,6 +527,8 @@ typedef struct {        /* observation data record */
     unsigned char SNR [NFREQ+NEXOBS]; /* signal strength (0.25 dBHz) */
     unsigned char LLI [NFREQ+NEXOBS]; /* loss of lock indicator */
     unsigned char code[NFREQ+NEXOBS]; /* code indicator (CODE_???) */
+    unsigned char qualL[NFREQ+NEXOBS]; /* quality of carrier phase measurement */
+    unsigned char qualP[NFREQ+NEXOBS]; /* quality of pseudorange measurement */
     double L[NFREQ+NEXOBS]; /* observation data carrier-phase (cycle) */
     double P[NFREQ+NEXOBS]; /* observation data pseudorange (m) */
     float  D[NFREQ+NEXOBS]; /* observation data doppler frequency (Hz) */
@@ -913,6 +919,8 @@ typedef struct {        /* solution type */
     unsigned char ns;   /* number of valid satellites */
     float age;          /* age of differential (s) */
     float ratio;        /* AR ratio factor for valiation */
+    float prev_ratio1;   /* previous initial AR ratio factor for validation */
+    float prev_ratio2;   /* previous final AR ratio factor for validation */
     float thres;        /* AR ratio threshold for valiation */
     double dop[4];      /* dilution of precision */
     int nSV;            /* number of SV */
@@ -975,8 +983,8 @@ typedef struct {        /* RTCM control struct type */
     int obsflag;        /* obs data complete flag (1:ok,0:not complete) */
     int ephsat;         /* update satellite of ephemeris */
     double cp[MAXSAT][NFREQ+NEXOBS]; /* carrier-phase measurement */
-    unsigned char lock[MAXSAT][NFREQ+NEXOBS]; /* lock time */
-    unsigned char loss[MAXSAT][NFREQ+NEXOBS]; /* loss of lock count */
+    unsigned short lock[MAXSAT][NFREQ+NEXOBS]; /* lock time */
+    unsigned short loss[MAXSAT][NFREQ+NEXOBS]; /* loss of lock count */
     gtime_t lltime[MAXSAT][NFREQ+NEXOBS]; /* last lock time */
     int nbyte;          /* number of bytes in message buffer */ 
     int nbit;           /* number of bits in word buffer */ 
@@ -1010,10 +1018,10 @@ typedef struct {        /* download url type */
 } url_t;
 
 typedef struct {        /* option type */
-    char *name;         /* option name */
+    const char *name;   /* option name */
     int format;         /* option format (0:int,1:double,2:string,3:enum) */
     void *var;          /* pointer to option variable */
-    char *comment;      /* option comment/enum labels/unit */
+    const char *comment; /* option comment/enum labels/unit */
 } opt_t;
 
 typedef struct {        /* extended receiver error model */
@@ -1039,9 +1047,13 @@ typedef struct {        /* processing options type */
     int sateph;         /* satellite ephemeris/clock (EPHOPT_???) */
     int modear;         /* AR mode (0:off,1:continuous,2:instantaneous,3:fix and hold,4:ppp-ar) */
     int glomodear;      /* GLONASS AR mode (0:off,1:on,2:auto cal,3:ext cal) */
+    int gpsmodear;      /* GPS AR mode (0:off,1:on) */
     int bdsmodear;      /* BeiDou AR mode (0:off,1:on) */
+    int arfilter;       /* AR filtering to reject bad sats (0:off,1:on) */
     int maxout;         /* obs outage count to reset bias */
     int minlock;        /* min lock count to fix ambiguity */
+    int minfixsats;     /* min sats to fix integer ambiguities */
+    int minholdsats;    /* min sats to hold integer ambiguities */
     int minfix;         /* min fix count to hold ambiguity */
     int armaxiter;      /* max iteration to resolve ambiguity */
     int ionoopt;        /* ionosphere option (IONOOPT_???) */
@@ -1169,6 +1181,7 @@ typedef struct {        /* satellite status type */
     double azel[2];     /* azimuth/elevation angles {az,el} (rad) */
     double resp[NFREQ]; /* residuals of pseudorange (m) */
     double resc[NFREQ]; /* residuals of carrier-phase (m) */
+	double icbias[NFREQ];  /* glonass IC bias (cycles) */
     unsigned char vsat[NFREQ]; /* valid satellite flag */
     unsigned char snr [NFREQ]; /* signal strength (0.25 dBHz) */
     unsigned char fix [NFREQ]; /* ambiguity fix flag (1:fix,2:float,3:hold) */
@@ -1203,7 +1216,9 @@ typedef struct {        /* RTK control/result type */
     double *x, *P;      /* float states and their covariance */
     double *xa,*Pa;     /* fixed states and their covariance */
     int nfix;           /* number of continuous fixes of ambiguity */
-    ambc_t ambc[MAXSAT]; /* ambibuity control */
+	double com_bias;    /* phase bias common between all sats (used to be distributed to all sats */
+    char holdamb;       /* set if fix-and-hold has occurred at least once */
+    ambc_t ambc[MAXSAT]; /* ambiguity control */
     ssat_t ssat[MAXSAT]; /* satellite status */
     int neb;            /* bytes in error message buffer */
     char errbuf[MAXERRMSG]; /* error message buffer */
@@ -1285,8 +1300,10 @@ typedef struct {        /* stream server type */
     int cycle;          /* server cycle (ms) */
     int buffsize;       /* input/monitor buffer size (bytes) */
     int nmeacycle;      /* NMEA request cycle (ms) (0:no) */
+    int relayback;      /* relay back of output streams (0:no) */
     int nstr;           /* number of streams (1 input + (nstr-1) outputs */
     int npb;            /* data length in peek buffer (bytes) */
+    char cmds_periodic[16][MAXRCVCMD]; /* periodic commands */
     double nmeapos[3];  /* NMEA request position (ecef) (m) */
     unsigned char *buff; /* input buffers */
     unsigned char *pbuf; /* peek buffer */
@@ -1333,6 +1350,7 @@ typedef struct {        /* RTK server type */
     int prcout;         /* missing observation data count */
     int nave;           /* number of averaging base pos */
     double rb_ave[3];   /* averaging base pos */
+    char cmds_periodic[3][MAXRCVCMD]; /* periodic commands */
     lock_t lock;        /* lock flag */
 } rtksvr_t;
 
@@ -1460,7 +1478,7 @@ EXPORT void covenu  (const double *pos, const double *P, double *Q);
 EXPORT void covecef (const double *pos, const double *Q, double *P);
 EXPORT void xyz2enu (const double *pos, double *E);
 EXPORT void eci2ecef(gtime_t tutc, const double *erpv, double *U, double *gmst);
-EXPORT void deg2dms (double deg, double *dms);
+EXPORT void deg2dms (double deg, double *dms, int ndec);
 EXPORT double dms2deg(const double *dms);
 
 /* input and output functions ------------------------------------------------*/
@@ -1758,10 +1776,14 @@ EXPORT int  strread  (stream_t *stream, unsigned char *buff, int n);
 EXPORT int  strwrite (stream_t *stream, unsigned char *buff, int n);
 EXPORT void strsync  (stream_t *stream1, stream_t *stream2);
 EXPORT int  strstat  (stream_t *stream, char *msg);
+EXPORT int  strstatx (stream_t *stream, char *msg);
 EXPORT void strsum   (stream_t *stream, int *inb, int *inr, int *outb, int *outr);
+EXPORT int  strgetsel(stream_t *stream, char *sel);
+EXPORT int  strsetsel(stream_t *stream, const char *sel);
+EXPORT int  strsetsrctbl(stream_t *stream, const char *file);
 EXPORT void strsetopt(const int *opt);
 EXPORT gtime_t strgettime(stream_t *stream);
-EXPORT void strsendnmea(stream_t *stream, sol_t *sol);
+EXPORT void strsendnmea(stream_t *stream, const sol_t *sol);
 EXPORT void strsendcmd(stream_t *stream, const char *cmd);
 EXPORT void strsettimeout(stream_t *stream, int toinact, int tirecon);
 EXPORT void strsetdir(const char *dir);
@@ -1811,21 +1833,23 @@ EXPORT int postpos(gtime_t ts, gtime_t te, double ti, double tu,
 /* stream server functions ---------------------------------------------------*/
 EXPORT void strsvrinit (strsvr_t *svr, int nout);
 EXPORT int  strsvrstart(strsvr_t *svr, int *opts, int *strs, char **paths,
-                        strconv_t **conv, char **cmds, const double *nmeapos);
+                        strconv_t **conv, char **cmds, char **cmds_priodic,
+                        const double *nmeapos);
 EXPORT void strsvrstop (strsvr_t *svr, char **cmds);
 EXPORT void strsvrstat (strsvr_t *svr, int *stat, int *byte, int *bps, char *msg);
 EXPORT strconv_t *strconvnew(int itype, int otype, const char *msgs, int staid,
                              int stasel, const char *opt);
 EXPORT void strconvfree(strconv_t *conv);
+EXPORT void strsvrsetsrctbl(strsvr_t *svr, const char *file);
 
 /* rtk server functions ------------------------------------------------------*/
 EXPORT int  rtksvrinit  (rtksvr_t *svr);
 EXPORT void rtksvrfree  (rtksvr_t *svr);
 EXPORT int  rtksvrstart (rtksvr_t *svr, int cycle, int buffsize, int *strs,
                          char **paths, int *formats, int navsel, char **cmds,
-                         char **rcvopts, int nmeacycle, int nmeareq,
-                         const double *nmeapos, prcopt_t *prcopt,
-                         solopt_t *solopt, stream_t *moni);
+                         char **cmds_periodic, char **rcvopts, int nmeacycle,
+                         int nmeareq, const double *nmeapos, prcopt_t *prcopt,
+                         solopt_t *solopt, stream_t *moni, char *errmsg);
 EXPORT void rtksvrstop  (rtksvr_t *svr, char **cmds);
 EXPORT int  rtksvropenstr(rtksvr_t *svr, int index, int str, const char *path,
                           const solopt_t *solopt);

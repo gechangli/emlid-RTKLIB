@@ -1,16 +1,18 @@
 //---------------------------------------------------------------------------
 // rtklaunch : rtklib ap launcher
 //
-//          Copyright (C) 2013 by T.TAKASU, All rights reserved.
+//          Copyright (C) 2013-2016 by T.TAKASU, All rights reserved.
 //
-// options : rtklib launcher [-t title][-tray]
+// options : rtklib launcher [-t title][-tray][-mkl|-win64]
 //
 //           -t title   window title
 //           -tray      start as task tray icon
 //           -mkl       use rtkpost_mkl and rtknavi_mkl
+//           -win64     use rtkpost_win64 and rtknavi_win64
 //
 // version : $Revision:$ $Date:$
 // history : 2013/01/10  1.1 new
+//           2016/09/03  1.2 add option -win64
 //---------------------------------------------------------------------------
 #include <vcl.h>
 #include <inifiles.hpp>
@@ -18,6 +20,7 @@
 
 #include "rtklib.h"
 #include "launchmain.h"
+#include "launchoptdlg.h"
 
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
@@ -25,7 +28,7 @@
 TMainForm *MainForm;
 
 #define BTN_SIZE        42
-#define BTN_COUNT       7
+#define BTN_COUNT       8
 #define MAX(x,y)        ((x)>(y)?(x):(y))
 
 //---------------------------------------------------------------------------
@@ -39,12 +42,23 @@ __fastcall TMainForm::TMainForm(TComponent* Owner)
     if (!(p=strrchr(file,'.'))) p=file+strlen(file);
     strcpy(p,".ini");
     IniFile=file;
-    Mkl=0;
+    Option=0;
+    Minimize=0;
+    
+    TIniFile *ini=new TIniFile(IniFile);
+    Left  =ini->ReadInteger("pos","left",    0);
+    Top   =ini->ReadInteger("pos","top",     0);
+    Width =ini->ReadInteger("pos","width", 310);
+    Height=ini->ReadInteger("pos","height", 79);
+    Option=ini->ReadInteger("pos","option",  0);
+    Minimize=ini->ReadInteger("pos","minimize",1);
+    delete ini;
     
     Caption="RTKLIB v." VER_RTKLIB " " PATCH_LEVEL;
+    BtnRtklib->Hint="RTKLIB v." VER_RTKLIB " " PATCH_LEVEL;
     TrayIcon->Hint=Caption;
-    Constraints->MinWidth=(Width-ClientWidth)+BTN_SIZE;
-    Constraints->MaxWidth=(Width-ClientWidth)+BTN_SIZE*BTN_COUNT;
+    Panel1->Constraints->MinWidth=BTN_SIZE+2;
+    Panel1->Constraints->MaxWidth=BTN_SIZE*BTN_COUNT+2;
     
     strcpy(buff,GetCommandLine());
     for (p=strtok(buff," ");p&&argc<32;p=strtok(NULL," ")) {
@@ -52,23 +66,17 @@ __fastcall TMainForm::TMainForm(TComponent* Owner)
     }
     for (i=1;i<argc;i++) {
         if      (!strcmp(argv[i],"-t")&&i+1<argc) Caption=argv[++i];
-        else if (!strcmp(argv[i],"-tray")) tray=1;
-        else if (!strcmp(argv[i],"-mkl")) Mkl=1;
+        else if (!strcmp(argv[i],"-tray" )) tray    =1;
+        else if (!strcmp(argv[i],"-min"  )) Minimize=1;
+        else if (!strcmp(argv[i],"-mkl"  )) Option  =1;
+        else if (!strcmp(argv[i],"-win64")) Option  =2;
     }
+    UpdatePanel();
+    
     if (tray) {
         Application->ShowMainForm=false;
         TrayIcon->Visible=true;
     }
-}
-//---------------------------------------------------------------------------
-void __fastcall TMainForm::FormShow(TObject *Sender)
-{
-    TIniFile *ini=new TIniFile(IniFile);
-    Left  =ini->ReadInteger("pos","left",    0);
-    Top   =ini->ReadInteger("pos","top",     0);
-    Width =ini->ReadInteger("pos","width", 310);
-    Height=ini->ReadInteger("pos","height", 79);
-    delete ini;
 }
 //---------------------------------------------------------------------------
 void __fastcall TMainForm::FormClose(TObject *Sender, TCloseAction &Action)
@@ -78,30 +86,9 @@ void __fastcall TMainForm::FormClose(TObject *Sender, TCloseAction &Action)
     ini->WriteInteger("pos","top",      Top);
     ini->WriteInteger("pos","width",  Width);
     ini->WriteInteger("pos","height",Height);
+    ini->WriteInteger("pos","option",Option);
+    ini->WriteInteger("pos","minimize",Minimize);
     delete ini;
-}
-//---------------------------------------------------------------------------
-void __fastcall TMainForm::FormResize(TObject *Sender)
-{
-    TSpeedButton *btn[]={
-        BtnPlot,BtnConv,BtnStr,BtnPost,BtnNtrip,BtnNavi,BtnGet
-    };
-    int i,j,k,n,m,h;
-    
-    n=MAX(1,(Width-10)/BTN_SIZE);
-    m=(BTN_COUNT-1)/n+1;
-    h=(Height-ClientHeight)+BTN_SIZE*m;
-    Constraints->MinHeight=h;
-    Constraints->MaxHeight=h;
-    
-    for (i=k=0;k<7;i++) for (j=0;j<n&&k<BTN_COUNT;j++,k++) {
-        btn[k]->Top =BTN_SIZE*i;
-        btn[k]->Left=BTN_SIZE*j;
-        btn[k]->Height=BTN_SIZE;
-        btn[k]->Width =BTN_SIZE;
-    }
-    BtnTray->Left=ClientWidth -BtnTray->Width;
-    BtnTray->Top =ClientHeight-BtnTray->Height;
 }
 //---------------------------------------------------------------------------
 void __fastcall TMainForm::BtnPlotClick(TObject *Sender)
@@ -129,8 +116,11 @@ void __fastcall TMainForm::BtnPostClick(TObject *Sender)
 {
     UnicodeString cmd1="rtkpost",cmd2="..\\..\\..\\bin\\rtkpost",opts="";
     
-    if (Mkl) {
+    if (Option==1) {
         cmd1=cmd1+"_mkl"; cmd2=cmd2+"_mkl";
+    }
+    else if (Option==2) {
+        cmd1=cmd1+"_win64"; cmd2=cmd2+"_win64";
     }
     if (!ExecCmd(cmd1+opts)) ExecCmd(cmd2+opts);
 }
@@ -146,8 +136,11 @@ void __fastcall TMainForm::BtnNaviClick(TObject *Sender)
 {
     UnicodeString cmd1="rtknavi",cmd2="..\\..\\..\\bin\\rtknavi",opts="";
     
-    if (Mkl) {
+    if (Option==1) {
         cmd1=cmd1+"_mkl"; cmd2=cmd2+"_mkl";
+    }
+    else if (Option==2) {
+        cmd1=cmd1+"_win64"; cmd2=cmd2+"_win64";
     }
     if (!ExecCmd(cmd1+opts)) ExecCmd(cmd2+opts);
 }
@@ -155,6 +148,13 @@ void __fastcall TMainForm::BtnNaviClick(TObject *Sender)
 void __fastcall TMainForm::BtnGetClick(TObject *Sender)
 {
     UnicodeString cmd1="rtkget",cmd2="..\\..\\..\\bin\\rtkget",opts="";
+    
+    if (!ExecCmd(cmd1+opts)) ExecCmd(cmd2+opts);
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::BtnVideoClick(TObject *Sender)
+{
+    UnicodeString cmd1="rtkvideo",cmd2="..\\..\\..\\bin\\rtkvideo",opts="";
     
     if (!ExecCmd(cmd1+opts)) ExecCmd(cmd2+opts);
 }
@@ -187,6 +187,8 @@ void __fastcall TMainForm::MenuExpandClick(TObject *Sender)
 {
     Visible=true;
     TrayIcon->Visible=false;
+    Minimize=0;
+    UpdatePanel();
 }
 //---------------------------------------------------------------------------
 void __fastcall TMainForm::MenuPlotClick(TObject *Sender)
@@ -224,7 +226,71 @@ void __fastcall TMainForm::MenuGetClick(TObject *Sender)
     BtnGetClick(Sender);
 }
 //---------------------------------------------------------------------------
+void __fastcall TMainForm::MenuVideoClick(TObject *Sender)
+{
+    BtnVideoClick(Sender);
+}
+//---------------------------------------------------------------------------
 void __fastcall TMainForm::MenuExitClick(TObject *Sender)
+{
+    Close();
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::Panel1Resize(TObject *Sender)
+{
+    TSpeedButton *btn[]={
+        BtnPlot,BtnConv,BtnStr,BtnPost,BtnNtrip,BtnNavi,BtnGet,BtnVideo
+    };
+    int i,j,k,n,m,h;
+    
+    if (Minimize) return;
+    n=MAX(1,Panel1->ClientWidth/BTN_SIZE);
+    m=(BTN_COUNT-1)/n+1;
+    h=BTN_SIZE*m+2;
+    Panel1->Constraints->MinHeight=h;
+    Panel1->Constraints->MaxHeight=h;
+    
+    for (i=k=0;k<BTN_COUNT;i++) for (j=0;j<n&&k<BTN_COUNT;j++,k++) {
+        btn[k]->Top =BTN_SIZE*i+1;
+        btn[k]->Left=BTN_SIZE*j+1;
+        btn[k]->Height=BTN_SIZE;
+        btn[k]->Width =BTN_SIZE;
+    }
+    BtnTray->Left=Panel1->ClientWidth -BtnTray->Width;
+    BtnTray->Top =Panel1->ClientHeight-BtnTray->Height;
+    BtnOption->Left=Panel1->ClientWidth -BtnOption->Width;
+    BtnOption->Top =0;
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::UpdatePanel(void)
+{
+    if (Minimize) {
+        BorderStyle=bsToolWindow;
+        Panel1->Visible=false;
+        Panel2->Visible=true;
+        AutoSize=true;
+    }
+    else {
+        BorderStyle=bsSizeToolWin;
+        Panel1->Visible=true;
+        Panel2->Visible=false;
+        AutoSize=false;
+    }
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::BtnOptionClick(TObject *Sender)
+{
+	if (LaunchOptDialog->ShowModal()!=mrOk) return;
+    UpdatePanel();
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::BtnRtklibMouseDown(TObject *Sender, TMouseButton Button,
+		  TShiftState Shift, int X, int Y)
+{
+	PopupMenu->Popup(Left+X,Top+Y);
+}
+//---------------------------------------------------------------------------
+void __fastcall TMainForm::BtnExitClick(TObject *Sender)
 {
     Close();
 }

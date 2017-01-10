@@ -144,6 +144,7 @@ TIMEPOS * __fastcall TPlot::SolToPos(solbuf_t *sol, int index, int qflag, int ty
         
         PosToXyz(data->time,data->rr,data->type,xyz);
         CovToXyz(data->rr,data->qr,data->type,xyzs);
+        if (xyz[2]<-RE_WGS84) continue;
         
         pos->t  [pos->n]=data->time;
         pos->x  [pos->n]=xyz [0];
@@ -402,6 +403,7 @@ int __fastcall TPlot::SearchPos(int x, int y)
         if (QFlag->ItemIndex&&data->stat!=QFlag->ItemIndex) continue;
         
         PosToXyz(data->time,data->rr,data->type,xyz);
+        if (xyz[2]<-RE_WGS84) continue;
         
         if (SQR(xp-xyz[0])+SQR(yp-xyz[1])<=SQR(r)) return i;
     }
@@ -449,8 +451,8 @@ AnsiString __fastcall TPlot::LatLonStr(const double *pos, int ndec)
                   ndec+5,ndec,fabs(pos[1]*R2D),pos[1]<0.0?"W":"E");
     }
     else {
-        deg2dms(pos[0]*R2D,dms1);
-        deg2dms(pos[1]*R2D,dms2);
+        deg2dms(pos[0]*R2D,dms1,ndec-5);
+        deg2dms(pos[1]*R2D,dms2,ndec-5);
         s.sprintf("%3.0f" CHARDEG "%02.0f'%0*.*f\"%s %4.0f" CHARDEG "%02.0f'%0*.*f\"%s",
                   fabs(dms1[0]),dms1[1],ndec-2,ndec-5,dms1[2],pos[0]<0.0?"S":"N",
                   fabs(dms2[0]),dms2[1],ndec-2,ndec-5,dms2[2],pos[1]<0.0?"W":"E");

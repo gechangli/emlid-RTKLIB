@@ -26,7 +26,6 @@ __published:
 	TPanel *Panel1;
 	TPanel *Panel3;
 	TPanel *Panel2;
-	TButton *BtnExit;
 	TButton *BtnInFile;
 	TButton *BtnOutFile1;
 	TButton *BtnOutFile2;
@@ -89,16 +88,18 @@ __published:
 	TCheckBox *TimeUnitF;
 	TLabel *LabelTimeUnit;
 	TEdit *TimeUnit;
-	TButton *BtnPost;
 	TCheckBox *OutFileEna7;
 	TEdit *OutFile7;
 	TSpeedButton *BtnOutFileView7;
 	TButton *BtnOutFile7;
 	TSpeedButton *BtnInFileView;
-	TBitBtn *BtnOptions;
-	TBitBtn *BtnConvert;
+	TPanel *Panel4;
 	TBitBtn *BtnAbort;
+	TBitBtn *BtnConvert;
+	TBitBtn *BtnOptions;
 	TBitBtn *BtnPlot;
+	TBitBtn *BtnPost;
+	TBitBtn *BtnExit;
 	
 	void __fastcall FormCreate          (TObject *Sender);
 	void __fastcall FormShow            (TObject *Sender);
@@ -148,6 +149,12 @@ __published:
 	void __fastcall BtnOutFileView7Click(TObject *Sender);
 	void __fastcall BtnInFileViewClick(TObject *Sender);
 	void __fastcall BtnAbortClick(TObject *Sender);
+	void __fastcall Panel4Resize(TObject *Sender);
+	void __fastcall Panel2Resize(TObject *Sender);
+	void __fastcall TimeY1KeyDown(TObject *Sender, WORD &Key, TShiftState Shift);
+	void __fastcall TimeH1KeyDown(TObject *Sender, WORD &Key, TShiftState Shift);
+	void __fastcall TimeY2KeyDown(TObject *Sender, WORD &Key, TShiftState Shift);
+	void __fastcall TimeH2KeyDown(TObject *Sender, WORD &Key, TShiftState Shift);
 	
 private:
 	AnsiString IniFile,CmdPostExe;
@@ -178,7 +185,7 @@ public:
 	gtime_t RnxTime;
 	AnsiString RunBy,Marker,MarkerNo,MarkerType,Name[2],Rec[3],Ant[3];
 	AnsiString RnxCode,Comment[2],RcvOption,ExSats;
-	AnsiString CodeMask[6];
+	AnsiString CodeMask[7];
 	double AppPos[3],AntDel[3];
 	int RnxVer,RnxFile,NavSys,ObsType,FreqType,TraceLevel,EventEna;
 	int AutoPos,ScanObs,HalfCyc,OutIono,OutTime,OutLeaps;
