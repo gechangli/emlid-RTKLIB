@@ -139,25 +139,26 @@ static const char *usage[]={
     "  -sta sta   station name for receiver dcb"
 };
 static const char *helptxt[]={
-    "start                 : start rtk server",
-    "stop                  : stop rtk server",
-    "restart               : restart rtk sever",
-    "solution [cycle]      : show solution",
-    "status [cycle]        : show rtk status",
-    "satellite [-n] [cycle]: show satellite status",
-    "observ [-n] [cycle]   : show observation data",
-    "navidata [cycle]      : show navigation data",
-    "stream [cycle]        : show stream status",
-    "error                 : show error/warning messages",
-    "option [opt]          : show option(s)",
-    "set opt [val]         : set option",
-    "load [file]           : load options from file",
-    "save [file]           : save options to file",
-    "log [file|off]        : start/stop log to file",
-    "help|? [path]         : print help",
-    "exit|ctr-D            : logout console (only for telnet)",
-    "shutdown              : shutdown rtk server",
-    "!command [arg...]     : execute command in shell",
+    " start            : start rtk server",
+    " stop             : stop rtk server",
+    " restart          : restart rtk sever",
+    " solution [cycle] : show solution",
+    " status [cycle]   : show rtk status",
+    " satellite [-n] [cycle]: show satellite status",
+    " observ [-n] [cycle]   : show observation data",
+    " navidata [cycle] : show navigation data",
+    " stream [cycle]   : show stream status",
+    " error            : show error/warning messages",
+    " option [opt]     : show option(s)",
+    " set opt [val]    : set option",
+    " load [file]      : load options from file",
+    " save [file]      : save options to file",
+    " log [file|off]   : start/stop log to file",
+    " help|? [path]    : print help",
+    " setposmode [val] : change position mode",
+    " exit             : exit and logout console",
+    " shutdown         : shutdown rtk server",
+    " !command [arg...]: execute command in shell",
     ""
 };
 static const char *pathopts[]={         /* path options help */
@@ -1282,13 +1283,48 @@ static int cmd_exec(const char *cmd, vt_t *vt)
     }
     return ret;
 }
+/* setposmode command -------------------------------------------------------*/
+static void cmd_setposmode(char **args, int narg, vt_t *vt)
+{
+    opt_t *opt;
+    char buff[MAXSTR];
+
+    trace(3,"cmd_setposmode:\n");
+
+    if ((svr.rtk.opt.mode!=PMODE_KINEMA)||(svr.rtk.opt.mode!=PMODE_STATIC)) {
+        vt_printf(vt,"forbidden operation in current mode \n");
+        return;
+    }
+    opt=searchopt("posmode",sysopts);
+
+    if (narg<2) {
+        vt_printf(vt,"%s",opt->name);
+        if (*opt->comment) vt_printf(vt," (%s)",opt->comment);
+        vt_printf(vt,": ");
+        if (!vt_gets(vt,buff,sizeof(buff))||vt->brk) return;
+    }
+    else strcpy(buff,args[2]);
+
+    chop(buff);
+    if (!str2opt(opt,buff)) {
+        vt_printf(vt,"invalid option value: %s %s\n",opt->name,buff);
+        return;
+    }
+
+    rtksvrlock(&svr);
+    getsysopts(&svr.rtk.opt, NULL, NULL);
+    rtksvrunlock(&svr);
+
+    vt_printf(vt,"mode changed to: %s\n", buff);
+    return;
+}
 /* console thread ------------------------------------------------------------*/
 static void *con_thread(void *arg)
 {
     const char *cmds[]={
         "start","stop","restart","solution","status","satellite","observ",
         "navidata","stream","error","option","set","load","save","log","help",
-        "?","exit","shutdown",""
+        "?", "setposmode","exit","shutdown",""
     };
     con_t *con=(con_t *)arg;
     int i,j,narg;
@@ -1344,10 +1380,11 @@ static void *con_thread(void *arg)
             case 14: cmd_log      (args,narg,con->vt); break;
             case 15: cmd_help     (args,narg,con->vt); break;
             case 16: cmd_help     (args,narg,con->vt); break;
-            case 17: /* exit */
+            case 17: cmd_setposmode(args,narg,vt); break;
+            case 18: /* exit */
                 if (con->vt->type) con->state=0;
                 break;
-            case 18: /* shutdown */
+            case 19: /* shutdown */
                 if (!strcmp(args[0],"shutdown")) {
                     vt_printf(con->vt,"rtk server shutdown ...\n");
                     sleepms(1000);
