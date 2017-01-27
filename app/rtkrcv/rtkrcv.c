@@ -633,6 +633,7 @@ static void prstatus(vt_t *vt)
          "PPP-kinema","PPP-static"
     };
     const char *freq[]={"-","L1","L1+L2","L1+L2+L5","","",""};
+    gtime_t eventime={0};
     rtcm_t rtcm[3];
     int i,j,n,thread,cycle,state,rtkstat,nsat0,nsat1,prcout,rcvcount,tmcount,timevalid,nave;
     int cputime,nb[3]={0},nmsg[3][10]={{0}};
@@ -652,7 +653,6 @@ static void prstatus(vt_t *vt)
     nsat1=svr.obs[1][0].n;
     rcvcount = svr.raw[0].obs.rcvcount;
     tmcount = svr.raw[0].obs.tmcount;
-    timevalid = svr.raw[0].obs.data[0].timevalid;
     cputime=svr.cputime;
     prcout=svr.prcout;
     nave=svr.nave;
@@ -666,7 +666,11 @@ static void prstatus(vt_t *vt)
         rt[1]=floor(runtime/60.0); rt[2]=runtime-rt[1]*60.0;
     }
     for (i=0;i<3;i++) rtcm[i]=svr.rtcm[i];
-    time2str(svr.raw[0].obs.data[0].eventime,tmstr,9);
+    if (svr.raw[0].obs.data != NULL) {
+        timevalid = svr.raw[0].obs.data[0].timevalid;
+        eventime = svr.raw[0].obs.data[0].eventime;
+    }
+    time2str(eventime,tmstr,9);
     rtksvrunlock(&svr);
     
     for (i=n=0;i<MAXSAT;i++) {
