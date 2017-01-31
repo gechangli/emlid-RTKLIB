@@ -140,7 +140,7 @@ static void buildpos(char *payload, struct erb_pos position, const uint32_t time
     position.lng = pos[1] * R2D;
     position.lat = pos[0] * R2D;
     position.altEl = pos[2];
-    position.altMsl = position.altEl;
+    position.altMsl = pos[2] - geoidh(pos);
     position.accHor = 1000 * SQRT(stdX * stdX + stdY * stdY);
     position.accVer = 1000 * stdZ;
 
