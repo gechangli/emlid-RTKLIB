@@ -309,6 +309,7 @@ int main(int argc, char **argv)
         strcpy(conv[i]->out.sta.recsno ,rcv[2]);
         matcpy(conv[i]->out.sta.pos,stapos,3,1);
         matcpy(conv[i]->out.sta.del,stadel,3,1);
+        conv[i]->out.sta.hgt=stadel[2];
     }
     signal(SIGTERM,sigfunc);
     signal(SIGINT ,sigfunc);
