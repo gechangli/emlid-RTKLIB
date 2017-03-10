@@ -245,9 +245,10 @@ extern "C" {
 #define MAXCOMMENT  10                  /* max number of RINEX comments */
 #define MAXSTRPATH  1024                /* max length of stream path */
 #define MAXSTRMSG   1024                /* max length of stream message */
-#define MAXSTRRTK   8                   /* max number of stream in RTK server */
+#define MAXSTRRTK   10                  /* max number of stream in RTK server */
 #define MAXSBSMSG   32                  /* max number of SBAS msg in RTK server */
 #define MAXSOLMSG   8191                /* max length of solution message */
+#define MAXSOLRTK   4                   /* max number of solution streams in RTK server */
 #define MAXRAWLEN   4096                /* max length of receiver raw message */
 #define MAXERRMSG   4096                /* max length of error/warning message */
 #define MAXANT      64                  /* max length of station name/antenna type */
@@ -257,6 +258,10 @@ extern "C" {
 #define MAXLEAPS    64                  /* max number of leap seconds table */
 #define MAXGISLAYER 32                  /* max number of GIS data layers */
 #define MAXRCVCMD   4096                /* max length of receiver commands */
+
+#define SOLUTIONSTROFFSET 3
+#define LOGSTROFFSET 7
+#define MONITORSTRN 10                   /* the number of MONITOR stream */
 
 #define RNX2VER     2.10                /* RINEX ver.2 default output version */
 #define RNX3VER     3.00                /* RINEX ver.3 default output version */
@@ -1251,7 +1256,7 @@ typedef struct {        /* receiver raw data control type */
     double prCA[MAXSAT],dpCA[MAXSAT]; /* L1/CA pseudrange/doppler for javad */
     unsigned char halfc[MAXSAT][NFREQ+NEXOBS]; /* half-cycle add flag */
     char freqn[MAXOBS]; /* frequency number for javad */
-    int nbyte;          /* number of bytes in message buffer */ 
+    int nbyte;          /* number of bytes in message buffer */
     int len;            /* message length (bytes) */
     int iod;            /* issue of data */
     int tod;            /* time of day (ms) */
@@ -1261,7 +1266,6 @@ typedef struct {        /* receiver raw data control type */
     unsigned char buff[MAXRAWLEN]; /* message buffer */
     char opt[256];      /* receiver dependent options */
     half_cyc_t *half_cyc; /* half-cycle correction list */
-    
     int format;         /* receiver stream format */
     void *rcv_data;     /* receiver dependent data */
 } raw_t;
@@ -1324,16 +1328,16 @@ typedef struct {        /* RTK server type */
     double nmeapos[3];  /* NMEA request position (ecef) (m) */
     int buffsize;       /* input buffer size (bytes) */
     int format[3];      /* input format {rov,base,corr} */
-    solopt_t solopt[2]; /* output solution options {sol1,sol2} */
+    solopt_t solopt[MAXSOLRTK]; /* output solution options {sol1,sol2} */
     int navsel;         /* ephemeris select (0:all,1:rover,2:base,3:corr) */
     int nsbs;           /* number of sbas message */
     int nsol;           /* number of solution buffer */
     rtk_t rtk;          /* RTK control/result struct */
     int nb [3];         /* bytes in input buffers {rov,base} */
-    int nsb[2];         /* bytes in soulution buffers */
+    int nsb[MAXSOLRTK];         /* bytes in soulution buffers */
     int npb[3];         /* bytes in input peek buffers */
     unsigned char *buff[3]; /* input buffers {rov,base,corr} */
-    unsigned char *sbuf[2]; /* output buffers {sol1,sol2} */
+    unsigned char *sbuf[MAXSOLRTK]; /* output buffers {sol1,sol2} */
     unsigned char *pbuf[3]; /* peek buffers {rov,base,corr} */
     sol_t solbuf[MAXSOLBUF]; /* solution buffer */
     unsigned int nmsg[3][10]; /* input message counts */
@@ -1344,7 +1348,7 @@ typedef struct {        /* RTK server type */
     obs_t obs[3][MAXOBSBUF]; /* observation data {rov,base,corr} */
     nav_t nav;          /* navigation data */
     sbsmsg_t sbsmsg[MAXSBSMSG]; /* SBAS message buffer */
-    stream_t stream[8]; /* streams {rov,base,corr,sol1,sol2,logr,logb,logc} */
+    stream_t stream[MAXSTRRTK]; /* streams {rov,base,corr,sol1,sol2,logr,logb,logc} */
     stream_t *moni;     /* monitor stream */
     unsigned int tick;  /* start tick */
     thread_t thread;    /* server thread */

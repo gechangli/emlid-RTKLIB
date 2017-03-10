@@ -68,7 +68,7 @@ static void writesol(rtksvr_t *svr, int index)
     
     tracet(4,"writesol: index=%d\n",index);
     
-    for (i=0;i<2;i++) {
+    for (i=0;i<MAXSOLRTK;i++) {
         
         if (svr->solopt[i].posf==SOLF_STAT) {
             
@@ -81,14 +81,14 @@ static void writesol(rtksvr_t *svr, int index)
             /* output solution */
             n=outsols(buff,&svr->rtk.sol,svr->rtk.rb,svr->solopt+i);
         }
-        strwrite(svr->stream+i+3,buff,n);
+        strwrite(svr->stream+i+SOLUTIONSTROFFSET,buff,n);
         
         /* save output buffer */
         saveoutbuf(svr,buff,n,i);
         
         /* output extended solution */
         n=outsolexs(buff,&svr->rtk.sol,svr->rtk.ssat,svr->solopt+i);
-        strwrite(svr->stream+i+3,buff,n);
+        strwrite(svr->stream+i+SOLUTIONSTROFFSET,buff,n);
         
         /* save output buffer */
         saveoutbuf(svr,buff,n,i);
@@ -499,7 +499,7 @@ static void *rtksvrthread(void *arg)
                 continue;
             }
             /* write receiver raw/rtcm data to log stream */
-            strwrite(svr->stream+i+5,p,n);
+            strwrite(svr->stream+i+LOGSTROFFSET,p,n);
             svr->nb[i]+=n;
             
             /* save peek buffer */
@@ -628,14 +628,14 @@ extern int rtksvrinit(rtksvr_t *svr)
     for (i=0;i<3;i++) svr->nmeapos[i]=0.0;
     svr->buffsize=0;
     for (i=0;i<3;i++) svr->format[i]=0;
-    for (i=0;i<2;i++) svr->solopt[i]=solopt_default;
+    for (i=0;i<MAXSOLRTK;i++) svr->solopt[i]=solopt_default;
     svr->navsel=svr->nsbs=svr->nsol=0;
     rtkinit(&svr->rtk,&prcopt_default);
     for (i=0;i<3;i++) svr->nb[i]=0;
-    for (i=0;i<2;i++) svr->nsb[i]=0;
+    for (i=0;i<MAXSOLRTK;i++) svr->nsb[i]=0;
     for (i=0;i<3;i++) svr->npb[i]=0;
     for (i=0;i<3;i++) svr->buff[i]=NULL;
-    for (i=0;i<2;i++) svr->sbuf[i]=NULL;
+    for (i=0;i<MAXSOLRTK;i++) svr->sbuf[i]=NULL;
     for (i=0;i<3;i++) svr->pbuf[i]=NULL;
     for (i=0;i<MAXSOLBUF;i++) svr->solbuf[i]=sol0;
     for (i=0;i<3;i++) for (j=0;j<10;j++) svr->nmsg[i][j]=0;
@@ -802,7 +802,7 @@ extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
         /* connect dgps corrections */
         svr->rtcm[i].dgps=svr->nav.dgps;
     }
-    for (i=0;i<2;i++) { /* output peek buffer */
+    for (i=0;i<MAXSOLRTK;i++) { /* output peek buffer */
         if (!(svr->sbuf[i]=(unsigned char *)malloc(buffsize))) {
             tracet(1,"rtksvrstart: malloc error\n");
             sprintf(errmsg,"rtk server malloc error");
@@ -810,7 +810,7 @@ extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
         }
     }
     /* set solution options */
-    for (i=0;i<2;i++) {
+    for (i=0;i<MAXSOLRTK;i++) {
         svr->solopt[i]=solopt[i];
     }
     /* set base station position */
@@ -829,7 +829,7 @@ extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
     svr->moni=moni;
     
     /* open input streams */
-    for (i=0;i<8;i++) {
+    for (i=0;i<MAXSTRRTK;i++) {
         rw=i<3?STR_MODE_R:STR_MODE_W;
         if (strs[i]!=STR_FILE) rw|=STR_MODE_W;
         if (!stropen(svr->stream+i,strs[i],rw,paths[i])) {
@@ -853,7 +853,7 @@ extern int rtksvrstart(rtksvr_t *svr, int cycle, int buffsize, int *strs,
         if (cmds[i]) strsendcmd(svr->stream+i,cmds[i]);
     }
     /* write solution header to solution streams */
-    for (i=3;i<5;i++) {
+    for (i=3;i<MAXSOLRTK;i++) {
         writesolhead(svr->stream+i,svr->solopt+i-3);
     }
     /* create rtk server thread */
@@ -917,7 +917,7 @@ extern int rtksvropenstr(rtksvr_t *svr, int index, int str, const char *path,
 {
     tracet(3,"rtksvropenstr: index=%d str=%d path=%s\n",index,str,path);
     
-    if (index<3||index>7||!svr->state) return 0;
+    if (index<3||index>=MAXSTRRTK||!svr->state) return 0;
     
     rtksvrlock(svr);
     
@@ -930,7 +930,7 @@ extern int rtksvropenstr(rtksvr_t *svr, int index, int str, const char *path,
         rtksvrunlock(svr);
         return 0;
     }
-    if (index<=4) {
+    if (index<=SOLUTIONSTROFFSET+MAXSOLRTK) {
         svr->solopt[index-3]=*solopt;
         
         /* write solution header to solution stream */
@@ -951,7 +951,7 @@ extern void rtksvrclosestr(rtksvr_t *svr, int index)
 {
     tracet(3,"rtksvrclosestr: index=%d\n",index);
     
-    if (index<3||index>7||!svr->state) return;
+    if (index<3||index>=MAXSTRRTK||!svr->state) return;
     
     rtksvrlock(svr);
     
