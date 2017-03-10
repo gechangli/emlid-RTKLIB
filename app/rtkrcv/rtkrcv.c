@@ -964,8 +964,7 @@ static void prstream(vt_t *vt)
               "Path","Message",ESC_RESET);
     for (i=0;i<(MAXSTRRTK+1);i++) {
         vt_printf(vt,"%-12s %-8s %-5s %s %10d %7d %10d %7d %-24.24s %s\n",
-            ch[i],type[stream[i].type],
-            i<3 ? fmt[format[i]] : (i<log_stream_number||i==MONITORSTRN ? sol[format[i]] : "-"),
+            ch[i],type[stream[i].type],i<3?fmt[format[i]]:(i<log_stream_number||i==MONITORSTRN?sol[format[i]]:"-"),
             stream[i].state<0?"E":(stream[i].state?"C":"-"),
             stream[i].inb,stream[i].inr,stream[i].outb,stream[i].outr,
             stream[i].path,stream[i].msg);
