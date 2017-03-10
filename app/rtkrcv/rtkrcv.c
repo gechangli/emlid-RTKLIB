@@ -404,14 +404,15 @@ static int startsvr(vt_t *vt)
     char s1[3][MAXRCVCMD]={"","",""},*cmds[]={NULL,NULL,NULL};
     char s2[3][MAXRCVCMD]={"","",""},*cmds_periodic[]={NULL,NULL,NULL};
     char *ropts[]={"","",""};
-    char *paths[]={
-        strpath[0],strpath[1],strpath[2],strpath[3],strpath[4],strpath[5],
-        strpath[6],strpath[7],strpath[8],strpath[9]
-    };
+    char *paths[MAXSTRRTK];
     char errmsg[2048]="";
     int i,ret,stropt[MAXSTRRTK]={0};
 
     trace(3,"startsvr:\n");
+
+    for (i=0; i<MAXSTRRTK; i++) {
+        paths[i] = strpath[i];
+    }
 
     /* read start commads from command files */
     for (i=0;i<3;i++) {
