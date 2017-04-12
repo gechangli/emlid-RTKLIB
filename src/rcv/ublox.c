@@ -1172,26 +1172,41 @@ extern int input_ubx(raw_t *raw, unsigned char data)
     return decode_ubx(raw);
 }
 /* input ublox raw message from file -------------------------------------------
-* fetch next ublox raw data and input a message from file
+* fetch next ublox raw data and input a message from file/socket
 * args   : raw_t  *raw   IO     receiver raw data control struct
 *          FILE   *fp    I      file pointer
+*          int     fd    I      file descriptor
 * return : status(-2: end of file, -1...9: same as above)
 *-----------------------------------------------------------------------------*/
-extern int input_ubxf(raw_t *raw, FILE *fp)
+extern int input_ubxf(raw_t *raw, FILE *fp, int fd)
 {
-    int i,data;
-    
+    int i,byte_data,bytes;
+    unsigned char data, buff[1];
+
     trace(4,"input_ubxf:\n");
-    
+
     /* synchronize frame */
     if (raw->nbyte==0) {
         for (i=0;;i++) {
-            if ((data=fgetc(fp))==EOF) return -2;
-            if (sync_ubx(raw->buff,(unsigned char)data)) break;
+            if (fd < 0) {
+                if ((byte_data=fgetc(fp))==EOF) return -2;
+                data = (unsigned char)byte_data;
+            } else {
+                bytes = read(fd, buff, 1);
+                if (bytes <= 0) return -2;
+                data = buff[0];
+            }
+            if (sync_ubx(raw->buff,data)) break;
             if (i>=4096) return 0;
         }
     }
-    if (fread(raw->buff+2,1,4,fp)<4) return -2;
+
+    if (fd < 0) {
+        if (fread(raw->buff+2,1,4,fp)<4) return -2;
+    } else {
+        if (read(fd,raw->buff+2,4)<4) return -2;
+    }
+
     raw->nbyte=6;
     
     if ((raw->len=U2(raw->buff+4)+8)>MAXRAWLEN) {
@@ -1199,7 +1214,13 @@ extern int input_ubxf(raw_t *raw, FILE *fp)
         raw->nbyte=0;
         return -1;
     }
-    if (fread(raw->buff+6,1,raw->len-6,fp)<(size_t)(raw->len-6)) return -2;
+
+    if (fd < 0) {
+        if (fread(raw->buff+6,1,raw->len-6,fp)<(size_t)(raw->len-6)) return -2;
+    } else {
+        if (read(fd, raw->buff+6, raw->len-6) < (size_t)(raw->len-6)) return -2;
+    }
+
     raw->nbyte=0;
     
     /* decode ubx raw message */

@@ -1009,14 +1009,14 @@ extern int input_raw(raw_t *raw, int format, unsigned char data)
 *          FILE   *fp    I      file pointer
 * return : status(-2: end of file/format error, -1...31: same as above)
 *-----------------------------------------------------------------------------*/
-extern int input_rawf(raw_t *raw, int format, FILE *fp)
+extern int input_rawf(raw_t *raw, int format, FILE *fp, int fd)
 {
     trace(4,"input_rawf: format=%d\n",format);
     
     switch (format) {
         case STRFMT_OEM4 : return input_oem4f (raw,fp);
         case STRFMT_OEM3 : return input_oem3f (raw,fp);
-        case STRFMT_UBX  : return input_ubxf  (raw,fp);
+        case STRFMT_UBX  : return input_ubxf  (raw,fp,fd);
         case STRFMT_SS2  : return input_ss2f  (raw,fp);
         case STRFMT_CRES : return input_cresf (raw,fp);
         case STRFMT_STQ  : return input_stqf  (raw,fp);

@@ -38,6 +38,12 @@
 #include <string.h>
 #include <stdarg.h>
 #include "rtklib.h"
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
 
 static const char rcsid[]="$Id: convbin.c,v 1.1 2008/07/17 22:13:04 ttaka Exp $";
 
@@ -156,6 +162,7 @@ static const char *help[]={
 "     *.cmr         CMR/CMR+",
 "     *.obs,*.*o    RINEX OBS"
 };
+
 /* print help ----------------------------------------------------------------*/
 static void printhelp(void)
 {
@@ -173,7 +180,7 @@ extern int showmsg(char *format, ...)
 }
 /* convert main --------------------------------------------------------------*/
 static int convbin(int format, rnxopt_t *opt, const char *ifile, char **file,
-                   char *dir)
+                   char *dir, int fd)
 {
     int i,def;
     char work[1024],ofile_[7][1024]={"","","","","","",""},*ofile[7],*p;
@@ -266,7 +273,7 @@ static int convbin(int format, rnxopt_t *opt, const char *ifile, char **file,
     if (*ofile[5]) fprintf(stderr,"->rinex lnav: %s\n",ofile[5]);
     if (*ofile[6]) fprintf(stderr,"->sbas log  : %s\n",ofile[6]);
     
-    if (!convrnx(format,opt,ifile,ofile)) {
+    if (!convrnx(format,opt,ifile,ofile,fd)) {
         fprintf(stderr,"\n");
         return -1;
     }
@@ -297,7 +304,7 @@ static void setmask(const char *argv, rnxopt_t *opt, int mask)
 }
 /* parse command line options ------------------------------------------------*/
 static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
-                   char **ofile, char **dir, int *trace)
+                   char **ofile, char **dir, int *trace, char **host, int *port)
 {
     double eps[]={1980,1,1,0,0,0},epe[]={2037,12,31,0,0,0};
     double epr[]={2010,1,1,0,0,0},span=0.0;
@@ -438,8 +445,12 @@ static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
         else if (!strcmp(argv[i],"-trace" )&&i+1<argc) {
             *trace=atoi(argv[++i]);
         }
+        else if (!strcmp(argv[i],"--host") && i+1<argc)
+            *host = argv[++i];
+        else if (!strcmp(argv[i],"--port") && i+1<argc)
+            *port = atoi(argv[++i]);
         else if (!strncmp(argv[i],"-",1)) printhelp();
-        
+
         else *ifile=argv[i];
     }
     if (span>0.0&&opt->ts.time) {
@@ -492,15 +503,46 @@ static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
     }
     return format;
 }
+
+/* connect to tcp svr --------------------------------------------------------*/
+static int connectsock(const char *host, int port)
+{
+    int fd;
+    struct sockaddr_in addr;
+
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (fd < 0) {
+        fprintf(stderr,"ERROR: open socket\n");
+        return -1;
+    }
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(host);
+    addr.sin_port = htons(port);
+
+    if (connect(fd, (struct sockaddr *)&addr,
+                sizeof(struct sockaddr_in)) < 0) {
+        fprintf(stderr,"ERROR: connect to socket\n");
+        goto exit;
+    }
+
+    return fd;
+exit:
+    close(fd);
+    return -1;
+}
+
 /* main ----------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
     rnxopt_t opt={{0}};
-    int format,trace=0,stat;
-    char *ifile="",*ofile[7]={0},*dir="";
-    
+    int format,trace=0,stat=1,fd,port=0;
+    char *ifile="",*ofile[7]={0},*dir="",*host="";
+
     /* parse command line options */
-    format=cmdopts(argc,argv,&opt,&ifile,ofile,&dir,&trace);
+    format=cmdopts(argc,argv,&opt,&ifile,ofile,&dir,&trace, &host, &port);
     
     if (!*ifile) {
         fprintf(stderr,"no input file\n");
@@ -521,9 +563,13 @@ int main(int argc, char **argv)
         traceopen(TRACEFILE);
         tracelevel(trace);
     }
-    stat=convbin(format,&opt,ifile,ofile,dir);
-    
+
+    fd = connectsock((const char*)host, port);
+    stat=convbin(format,&opt,ifile,ofile,dir,fd);
+
+    if (fd > 0)
+        close(fd);
+
     traceclose();
-    
     return stat;
 }

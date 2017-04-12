@@ -292,7 +292,7 @@ static void free_strfile(strfile_t *str)
     free(str);
 }
 /* input stream file ---------------------------------------------------------*/
-static int input_strfile(strfile_t *str)
+static int input_strfile(strfile_t *str, int fd)
 {
     int type=0;
     
@@ -311,7 +311,7 @@ static int input_strfile(strfile_t *str)
         }
     }
     else if (str->format<=MAXRCVFMT) {
-        if ((type=input_rawf(&str->raw,str->format,str->fp))>=1) {
+        if ((type=input_rawf(&str->raw,str->format,str->fp, fd))>=1) {
             str->time=str->raw.time;
             str->sat=str->raw.ephsat;
         }
@@ -327,7 +327,7 @@ static int input_strfile(strfile_t *str)
     return type;
 }
 /* open stream file ----------------------------------------------------------*/
-static int open_strfile(strfile_t *str, const char *file)
+static int open_strfile(strfile_t *str, const char *file, int fd)
 {
     trace(3,"open_strfile: file=%s\n",file);
     
@@ -345,7 +345,7 @@ static int open_strfile(strfile_t *str, const char *file)
         /* read head to resolve time ambiguity */
         if (str->time.time==0) {
             str->raw.flag=1;
-            while (input_strfile(str)>=-1&&str->time.time==0) ;
+            while (input_strfile(str, fd)>=-1&&str->time.time==0) ;
             str->raw.flag=1;
             rewind(str->fp);
         }
@@ -444,7 +444,7 @@ static void setopt_obstype(const unsigned char *codes,
 }
 /* scan observation types ----------------------------------------------------*/
 static int scan_obstype(int format, const char *file, rnxopt_t *opt,
-                        gtime_t *time)
+                        gtime_t *time, int fd)
 {
     strfile_t *str;
     unsigned char codes[7][33]={{0}};
@@ -456,12 +456,12 @@ static int scan_obstype(int format, const char *file, rnxopt_t *opt,
     
     if (!(str=gen_strfile(format,opt->rcvopt,*time))) return 0;
     
-    if (!open_strfile(str,file)) {
+    if (!open_strfile(str,file,fd)) {
         free_strfile(str);
         return 0;
     }
     /* scan codes in input file */
-    while ((type=input_strfile(str))>=-1) {
+    while ((type=input_strfile(str,fd))>=-1) {
         
         if (type!=1||str->obs->n<=0) continue;
         
@@ -980,7 +980,7 @@ static int showstat(int sess, gtime_t ts, gtime_t te, int *n)
 }
 /* rinex converter for single-session ----------------------------------------*/
 static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
-                     char **ofile)
+                     char **ofile, int fd)
 {
     FILE *ofp[NOUTFILE]={NULL};
     strfile_t *str;
@@ -1014,7 +1014,7 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
     if (opt->scanobs) {
         
         /* scan observation types */
-        if (!scan_obstype(format,epath[0],opt,&time)) return 0;
+        if (!scan_obstype(format,epath[0],opt,&time,fd)) return 0;
     }
     else {
         /* set observation types by format */
@@ -1045,11 +1045,11 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
     for (i=0;i<nf&&!abort;i++) {
         
         /* open stream file */
-        if (!open_strfile(str,epath[i])) continue;
+        if (!open_strfile(str,epath[i],fd)) continue;
         
         /* input message */
-        for (j=0;(type=input_strfile(str))>=-1;j++) {
-            
+        for (j=0;(type=input_strfile(str, fd))>=-1;j++) {
+
             if (j%11==1&&(abort=showstat(sess,te,te,n))) break;
             
             /* avioid duplicated if overlapped data */
@@ -1071,6 +1071,7 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
             }
             if (opt->te.time&&timediff(te,opt->te)>10.0) break;
         }
+
         /* close stream file */
         close_strfile(str);
         
@@ -1125,7 +1126,7 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
 *          id (%r)
 *          the order of wild-card expanded files must be in-order by time
 *-----------------------------------------------------------------------------*/
-extern int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile)
+extern int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile, int fd)
 {
     gtime_t t0={0};
     rnxopt_t opt_=*opt;
@@ -1142,7 +1143,7 @@ extern int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile)
         
         /* single-session */
         opt_.tstart=opt_.tend=t0;
-        stat=convrnx_s(0,format,&opt_,file,ofile);
+        stat=convrnx_s(0,format,&opt_,file,ofile, fd);
     }
     else if (timediff(opt->ts,opt->te)<=0.0) {
         
@@ -1159,7 +1160,7 @@ extern int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile)
             if (timediff(opt_.ts,opt->ts)<0.0) opt_.ts=opt->ts;
             if (timediff(opt_.te,opt->te)>0.0) opt_.te=opt->te;
             opt_.tstart=opt_.tend=t0;
-            if ((stat=convrnx_s(i+1,format,&opt_,file,ofile))<0) break;
+            if ((stat=convrnx_s(i+1,format,&opt_,file,ofile,fd))<0) break;
         }
     }
     else {
