@@ -35,6 +35,7 @@
 *-----------------------------------------------------------------------------*/
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <string.h>
 #include <stdarg.h>
 #include "rtklib.h"
@@ -43,6 +44,17 @@ static const char rcsid[]="$Id: convbin.c,v 1.1 2008/07/17 22:13:04 ttaka Exp $"
 
 #define PRGNAME   "CONVBIN"
 #define TRACEFILE "convbin.trace"
+
+static int timeout      =10;         /* timeout time (ms) */
+static int reconnect    =10;         /* reconnect interval (ms) */
+static int intflg       =0;
+
+/* external stop signal ------------------------------------------------------*/
+static void sigshut(int sig)
+{
+    trace(3, "sigshut: sig=%d\n", sig);
+    intflg = 1;
+}
 
 /* help text -----------------------------------------------------------------*/
 static const char *help[]={
@@ -176,7 +188,7 @@ extern int showmsg(char *format, ...)
 }
 /* convert main --------------------------------------------------------------*/
 static int convbin(int format, rnxopt_t *opt, const char *ifile, char **file,
-                   char *dir, const char *host, int port)
+                   char *dir, int *intflg, stream_t *stream)
 {
     int i,def;
     char work[1024],ofile_[7][1024]={"","","","","","",""},*ofile[7],*p;
@@ -269,7 +281,7 @@ static int convbin(int format, rnxopt_t *opt, const char *ifile, char **file,
     if (*ofile[5]) fprintf(stderr,"->rinex lnav: %s\n",ofile[5]);
     if (*ofile[6]) fprintf(stderr,"->sbas log  : %s\n",ofile[6]);
     
-    if (!convrnx(format,opt,ifile,ofile,host,port)) {
+    if (!convrnx(format,opt,ifile,ofile,intflg,stream)) {
         fprintf(stderr,"\n");
         return -1;
     }
@@ -300,7 +312,7 @@ static void setmask(const char *argv, rnxopt_t *opt, int mask)
 }
 /* parse command line options ------------------------------------------------*/
 static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
-                   char **ofile, char **dir, int *trace, char **host, int *port)
+                   char **ofile, char **dir, int *trace, char **_path)
 {
     double eps[]={1980,1,1,0,0,0},epe[]={2037,12,31,0,0,0};
     double epr[]={2010,1,1,0,0,0},span=0.0;
@@ -441,10 +453,8 @@ static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
         else if (!strcmp(argv[i],"-trace" )&&i+1<argc) {
             *trace=atoi(argv[++i]);
         }
-        else if (!strcmp(argv[i],"-host") && i+1<argc)
-            *host = argv[++i];
-        else if (!strcmp(argv[i],"-port") && i+1<argc)
-            *port = atoi(argv[++i]);
+        else if (!strcmp(argv[i],"-path") && i+1<argc)
+            *_path = argv[++i];
         else if (!strncmp(argv[i],"-",1)) printhelp();
 
         else *ifile=argv[i];
@@ -500,15 +510,22 @@ static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
     return format;
 }
 
+/* hack to use streams */
+extern int outnmea_gga(unsigned char *buff, const sol_t *sol)
+{
+    return 0;
+}
+
 /* main ----------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
     rnxopt_t opt={{0}};
-    int format,trace=0,stat=1,port=0;
-    char *ifile="",*ofile[7]={0},*dir="",*host=NULL;
+    int format,trace=0,stat=1;
+    char *ifile="",*ofile[7]={0},*dir="",*path=NULL;
+    stream_t stream;
 
     /* parse command line options */
-    format=cmdopts(argc,argv,&opt,&ifile,ofile,&dir,&trace,&host,&port);
+    format=cmdopts(argc,argv,&opt,&ifile,ofile,&dir,&trace,&path);
 
     if (!*ifile) {
         fprintf(stderr,"no input file\n");
@@ -530,8 +547,22 @@ int main(int argc, char **argv)
         tracelevel(trace);
     }
 
-    stat=convbin(format,&opt,ifile,ofile,dir,host,port);
+    signal(SIGINT, sigshut); /* keyboard interrupt */
+    signal(SIGTERM, sigshut); /* external shutdown signal */
+    signal(SIGUSR2, sigshut);
 
+    strinit(&stream);
+
+    if (path) {
+        if(!stropen(&stream,STR_TCPCLI,STR_MODE_R, path))
+            goto exit;
+        strsettimeout(&stream,timeout,reconnect);
+    }
+
+    stat=convbin(format,&opt,ifile,ofile,dir,&intflg,&stream);
+
+exit:
+    strclose(&stream);
     traceclose();
     return stat;
 }

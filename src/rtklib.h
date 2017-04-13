@@ -1590,7 +1590,7 @@ EXPORT int outrnxgnavb(FILE *fp, const rnxopt_t *opt, const geph_t *geph);
 EXPORT int outrnxhnavb(FILE *fp, const rnxopt_t *opt, const seph_t *seph);
 EXPORT int rtk_uncompress(const char *file, char *uncfile);
 EXPORT int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile,
-                   const char *host, int port);
+                   int *intflg, stream_t *stream);
 EXPORT int  init_rnxctr (rnxctr_t *rnx);
 EXPORT void free_rnxctr (rnxctr_t *rnx);
 EXPORT int  open_rnxctr (rnxctr_t *rnx, FILE *fp);
@@ -1647,7 +1647,7 @@ EXPORT int decode_gal_inav(const unsigned char *buff, eph_t *eph);
 EXPORT int init_raw   (raw_t *raw, int format);
 EXPORT void free_raw  (raw_t *raw);
 EXPORT int input_raw  (raw_t *raw, int format, unsigned char data);
-EXPORT int input_rawf (raw_t *raw, int format, FILE *fp, int fd);
+EXPORT int input_rawf (raw_t *raw, int format, FILE *fp, stream_t *stream);
 
 EXPORT int init_rt17  (raw_t *raw);
 EXPORT int init_cmr   (raw_t *raw);
@@ -1671,7 +1671,7 @@ EXPORT int input_cmr   (raw_t *raw, unsigned char data);
 EXPORT int input_lexr  (raw_t *raw, unsigned char data);
 EXPORT int input_oem4f (raw_t *raw, FILE *fp);
 EXPORT int input_oem3f (raw_t *raw, FILE *fp);
-EXPORT int input_ubxf  (raw_t *raw, FILE *fp, int fd);
+EXPORT int input_ubxf  (raw_t *raw, FILE *fp, stream_t *stream);
 EXPORT int input_ss2f  (raw_t *raw, FILE *fp);
 EXPORT int input_cresf (raw_t *raw, FILE *fp);
 EXPORT int input_stqf  (raw_t *raw, FILE *fp);

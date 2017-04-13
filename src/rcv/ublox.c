@@ -54,7 +54,6 @@
 *-----------------------------------------------------------------------------*/
 #include <stdint.h>
 #include "rtklib.h"
-#include "stream_sock.h"
 
 #define UBXSYNC1    0xB5        /* ubx message sync code 1 */
 #define UBXSYNC2    0x62        /* ubx message sync code 2 */
@@ -1176,10 +1175,9 @@ extern int input_ubx(raw_t *raw, unsigned char data)
 * fetch next ublox raw data and input a message from file/socket
 * args   : raw_t  *raw   IO     receiver raw data control struct
 *          FILE   *fp    I      file pointer
-*          int     fd    I      file descriptor
 * return : status(-2: end of file, -1...9: same as above)
 *-----------------------------------------------------------------------------*/
-extern int input_ubxf(raw_t *raw, FILE *fp, int fd)
+extern int input_ubxf(raw_t *raw, FILE *fp, stream_t *stream)
 {
     int i,byte_data,bytes;
     unsigned char data, buff[1];
@@ -1189,11 +1187,11 @@ extern int input_ubxf(raw_t *raw, FILE *fp, int fd)
     /* synchronize frame */
     if (raw->nbyte==0) {
         for (i=0;;i++) {
-            if (fd < 0) {
+            if (!stream->port) {
                 if ((byte_data=fgetc(fp))==EOF) return -2;
                 data = (unsigned char)byte_data;
             } else {
-                bytes = readsock(fd, buff, 1);
+                bytes = strread(stream, buff, 1);
                 if (bytes <= 0) return -2;
                 data = buff[0];
             }
@@ -1202,10 +1200,10 @@ extern int input_ubxf(raw_t *raw, FILE *fp, int fd)
         }
     }
 
-    if (fd < 0) {
+    if (!stream->port) {
         if (fread(raw->buff+2,1,4,fp)<4) return -2;
     } else {
-        if (readsock(fd,raw->buff+2,4)<4) return -2;
+        if (strread(stream,raw->buff+2,4)<4) return -2;
     }
 
     raw->nbyte=6;
@@ -1216,10 +1214,10 @@ extern int input_ubxf(raw_t *raw, FILE *fp, int fd)
         return -1;
     }
 
-    if (fd < 0) {
+    if (!stream->port) {
         if (fread(raw->buff+6,1,raw->len-6,fp)<(size_t)(raw->len-6)) return -2;
     } else {
-        if (readsock(fd, raw->buff+6, raw->len-6) < (size_t)(raw->len-6)) return -2;
+        if (strread(stream, raw->buff+6, raw->len-6) < (size_t)(raw->len-6)) return -2;
     }
 
     raw->nbyte=0;
