@@ -38,12 +38,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include "rtklib.h"
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-
 
 static const char rcsid[]="$Id: convbin.c,v 1.1 2008/07/17 22:13:04 ttaka Exp $";
 
@@ -180,7 +174,7 @@ extern int showmsg(char *format, ...)
 }
 /* convert main --------------------------------------------------------------*/
 static int convbin(int format, rnxopt_t *opt, const char *ifile, char **file,
-                   char *dir, int fd)
+                   char *dir, const char *host, int port)
 {
     int i,def;
     char work[1024],ofile_[7][1024]={"","","","","","",""},*ofile[7],*p;
@@ -273,7 +267,7 @@ static int convbin(int format, rnxopt_t *opt, const char *ifile, char **file,
     if (*ofile[5]) fprintf(stderr,"->rinex lnav: %s\n",ofile[5]);
     if (*ofile[6]) fprintf(stderr,"->sbas log  : %s\n",ofile[6]);
     
-    if (!convrnx(format,opt,ifile,ofile,fd)) {
+    if (!convrnx(format,opt,ifile,ofile,host,port)) {
         fprintf(stderr,"\n");
         return -1;
     }
@@ -504,46 +498,16 @@ static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
     return format;
 }
 
-/* connect to tcp svr --------------------------------------------------------*/
-static int connectsock(const char *host, int port)
-{
-    int fd;
-    struct sockaddr_in addr;
-
-    fd = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (fd < 0) {
-        fprintf(stderr,"ERROR: open socket\n");
-        return -1;
-    }
-
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr(host);
-    addr.sin_port = htons(port);
-
-    if (connect(fd, (struct sockaddr *)&addr,
-                sizeof(struct sockaddr_in)) < 0) {
-        fprintf(stderr,"ERROR: connect to socket\n");
-        goto exit;
-    }
-
-    return fd;
-exit:
-    close(fd);
-    return -1;
-}
-
 /* main ----------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
     rnxopt_t opt={{0}};
-    int format,trace=0,stat=1,fd,port=0;
+    int format,trace=0,stat=1,port=0;
     char *ifile="",*ofile[7]={0},*dir="",*host="";
 
     /* parse command line options */
-    format=cmdopts(argc,argv,&opt,&ifile,ofile,&dir,&trace, &host, &port);
-    
+    format=cmdopts(argc,argv,&opt,&ifile,ofile,&dir,&trace,&host,&port);
+
     if (!*ifile) {
         fprintf(stderr,"no input file\n");
         return -1;
@@ -564,11 +528,7 @@ int main(int argc, char **argv)
         tracelevel(trace);
     }
 
-    fd = connectsock((const char*)host, port);
-    stat=convbin(format,&opt,ifile,ofile,dir,fd);
-
-    if (fd > 0)
-        close(fd);
+    stat=convbin(format,&opt,ifile,ofile,dir,host,port);
 
     traceclose();
     return stat;

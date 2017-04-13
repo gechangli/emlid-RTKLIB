@@ -29,6 +29,7 @@
 *           2015/07/04 1.11 support IRNSS
 *-----------------------------------------------------------------------------*/
 #include "rtklib.h"
+#include "stream_sock.h"
 
 static const char rcsid[]="$Id:$";
 
@@ -338,16 +339,18 @@ static int open_strfile(strfile_t *str, const char *file, int fd)
         }
     }
     else if (str->format<=MAXRCVFMT) {
-        if (!(str->fp=fopen(file,"rb"))) {
+        if ((fd < 0) && !(str->fp=fopen(file,"rb"))) {
             showmsg("log open error: %s",file);
             return 0;
         }
         /* read head to resolve time ambiguity */
         if (str->time.time==0) {
             str->raw.flag=1;
-            while (input_strfile(str, fd)>=-1&&str->time.time==0) ;
+            while (input_strfile(str, fd)>=-1&&str->time.time==0)
+                ;
             str->raw.flag=1;
-            rewind(str->fp);
+            if (fd < 0)
+                rewind(str->fp);
         }
     }
     else if (str->format==STRFMT_RINEX) {
@@ -980,13 +983,13 @@ static int showstat(int sess, gtime_t ts, gtime_t te, int *n)
 }
 /* rinex converter for single-session ----------------------------------------*/
 static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
-                     char **ofile, int fd)
+                     char **ofile, const char *host, int port)
 {
     FILE *ofp[NOUTFILE]={NULL};
     strfile_t *str;
     gtime_t ts={0},te={0},tend={0},time={0};
     unsigned char slips[MAXSAT][NFREQ+NEXOBS]={{0}};
-    int i,j,nf,type,n[NOUTFILE+2]={0},abort=0;
+    int i,j,nf,type,fd,n[NOUTFILE+2]={0},abort=0;
     char path[1024],*paths[NOUTFILE],s[NOUTFILE][1024];
     char *epath[MAXEXFILE]={0},*staid=*opt->staid?opt->staid:"0000";
     
@@ -1007,7 +1010,10 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
         }
     }
     nf=expath(path,epath,MAXEXFILE);
-    
+
+    fd=connectsock(host,port);
+    if (fd > 0) nf = 1;
+
     if (format==STRFMT_RTCM2||format==STRFMT_RTCM3) {
         time=opt->trtcm;
     }
@@ -1048,7 +1054,20 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
         if (!open_strfile(str,epath[i],fd)) continue;
         
         /* input message */
-        for (j=0;(type=input_strfile(str, fd))>=-1;j++) {
+        for (j=0;;j++) {
+            type=input_strfile(str,fd);
+
+            if (!(type >= -1)) {
+                if (fd > 0) {
+                    closesock(fd);
+
+                    for(;;) {
+                        fd=connectsock(host,port);
+                        if (fd > 0) break;
+                        sleep(3);
+                    }
+                } else break;
+            }
 
             if (j%11==1&&(abort=showstat(sess,te,te,n))) break;
             
@@ -1077,6 +1096,9 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
         
         tend=te; /* end time of a file */
     }
+
+    closesock(fd);
+
     /* set receiver and antenna information to option */
     if (format==STRFMT_RTCM2||format==STRFMT_RTCM3) {
         rtcm2opt(&str->rtcm,opt);
@@ -1126,7 +1148,8 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
 *          id (%r)
 *          the order of wild-card expanded files must be in-order by time
 *-----------------------------------------------------------------------------*/
-extern int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile, int fd)
+extern int convrnx(int format, rnxopt_t *opt, const char *file,
+                   char **ofile, const char *host, int port)
 {
     gtime_t t0={0};
     rnxopt_t opt_=*opt;
@@ -1143,7 +1166,7 @@ extern int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile, in
         
         /* single-session */
         opt_.tstart=opt_.tend=t0;
-        stat=convrnx_s(0,format,&opt_,file,ofile, fd);
+        stat=convrnx_s(0,format,&opt_,file,ofile,host,port);
     }
     else if (timediff(opt->ts,opt->te)<=0.0) {
         
@@ -1160,7 +1183,7 @@ extern int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile, in
             if (timediff(opt_.ts,opt->ts)<0.0) opt_.ts=opt->ts;
             if (timediff(opt_.te,opt->te)>0.0) opt_.te=opt->te;
             opt_.tstart=opt_.tend=t0;
-            if ((stat=convrnx_s(i+1,format,&opt_,file,ofile,fd))<0) break;
+            if ((stat=convrnx_s(i+1,format,&opt_,file,ofile,host,port))<0) break;
         }
     }
     else {
