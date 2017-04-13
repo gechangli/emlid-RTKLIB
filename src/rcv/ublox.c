@@ -1193,7 +1193,7 @@ extern int input_ubxf(raw_t *raw, FILE *fp, int fd)
                 if ((byte_data=fgetc(fp))==EOF) return -2;
                 data = (unsigned char)byte_data;
             } else {
-                bytes = read(fd, buff, 1);
+                bytes = readsock(fd, buff, 1);
                 if (bytes <= 0) return -2;
                 data = buff[0];
             }
@@ -1205,7 +1205,7 @@ extern int input_ubxf(raw_t *raw, FILE *fp, int fd)
     if (fd < 0) {
         if (fread(raw->buff+2,1,4,fp)<4) return -2;
     } else {
-        if (read(fd,raw->buff+2,4)<4) return -2;
+        if (readsock(fd,raw->buff+2,4)<4) return -2;
     }
 
     raw->nbyte=6;
@@ -1219,7 +1219,7 @@ extern int input_ubxf(raw_t *raw, FILE *fp, int fd)
     if (fd < 0) {
         if (fread(raw->buff+6,1,raw->len-6,fp)<(size_t)(raw->len-6)) return -2;
     } else {
-        if (read(fd, raw->buff+6, raw->len-6) < (size_t)(raw->len-6)) return -2;
+        if (readsock(fd, raw->buff+6, raw->len-6) < (size_t)(raw->len-6)) return -2;
     }
 
     raw->nbyte=0;

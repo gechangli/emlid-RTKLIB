@@ -135,6 +135,8 @@ static const char *help[]={
 "     -l lfile     output RINEX LNAV file",
 "     -s sfile     output SBAS message file",
 "     -trace level output trace level [off]",
+"     -host host   inet host",
+"     -port port   inet port",
 "",
 " If any output file specified, default output files (<file>.obs,",
 " <file>.nav, <file>.gnav, <file>.hnav, <file>.qnav, <file>.lnav and",
@@ -439,9 +441,9 @@ static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
         else if (!strcmp(argv[i],"-trace" )&&i+1<argc) {
             *trace=atoi(argv[++i]);
         }
-        else if (!strcmp(argv[i],"--host") && i+1<argc)
+        else if (!strcmp(argv[i],"-host") && i+1<argc)
             *host = argv[++i];
-        else if (!strcmp(argv[i],"--port") && i+1<argc)
+        else if (!strcmp(argv[i],"-port") && i+1<argc)
             *port = atoi(argv[++i]);
         else if (!strncmp(argv[i],"-",1)) printhelp();
 
@@ -503,7 +505,7 @@ int main(int argc, char **argv)
 {
     rnxopt_t opt={{0}};
     int format,trace=0,stat=1,port=0;
-    char *ifile="",*ofile[7]={0},*dir="",*host="";
+    char *ifile="",*ofile[7]={0},*dir="",*host=NULL;
 
     /* parse command line options */
     format=cmdopts(argc,argv,&opt,&ifile,ofile,&dir,&trace,&host,&port);

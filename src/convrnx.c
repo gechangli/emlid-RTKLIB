@@ -1064,7 +1064,7 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
                     for(;;) {
                         fd=connectsock(host,port);
                         if (fd > 0) break;
-                        sleep(3);
+                        sleep(RECONNECT_DELAY);
                     }
                 } else break;
             }
