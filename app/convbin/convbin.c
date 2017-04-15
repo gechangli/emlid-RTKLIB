@@ -511,7 +511,7 @@ static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
     return format;
 }
 
-/* hack to use streams */
+/* hack to build streams */
 extern int outnmea_gga(unsigned char *buff, const sol_t *sol)
 {
     return 0;
