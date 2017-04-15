@@ -35,7 +35,7 @@ static const char rcsid[]="$Id:$";
 
 #define NOUTFILE        7       /* number of output files */
 #define TSTARTMARGIN    60.0    /* time margin for file name replacement */
-#define STR_READ_DELAY_USEC 10000
+#define STR_DELAY_USEC 25000
 
 /* type definition -----------------------------------------------------------*/
 
@@ -1061,10 +1061,8 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
 
             /* type >= -1 if input data is available */
             if (!(type >= -1)) {
-                /* wait for data/sock if input socket */
                 if (!*intflg && (stream->port)) {
-                    trace(5, "convrnx_s: reconnect\n");
-                    usleep(STR_READ_DELAY_USEC);
+                    usleep(STR_DELAY_USEC);
                 } else break;
             } else if (*intflg) break;
 

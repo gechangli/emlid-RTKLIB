@@ -45,8 +45,8 @@ static const char rcsid[]="$Id: convbin.c,v 1.1 2008/07/17 22:13:04 ttaka Exp $"
 #define PRGNAME   "CONVBIN"
 #define TRACEFILE "convbin.trace"
 
-static int timeout      =10;         /* timeout time (ms) */
-static int reconnect    =10;         /* reconnect interval (ms) */
+static int timeout      =5000;         /* timeout time (ms) */
+static int reconnect    =5000;         /* reconnect interval (ms) */
 static int intflg       =0;
 
 /* external stop signal ------------------------------------------------------*/
@@ -147,8 +147,9 @@ static const char *help[]={
 "     -l lfile     output RINEX LNAV file",
 "     -s sfile     output SBAS message file",
 "     -trace level output trace level [off]",
-"     -host host   inet host",
-"     -port port   inet port",
+"     -path path   inet host:port",
+"                  default input stream is file if no path",
+"                  use file as name for output files",
 "",
 " If any output file specified, default output files (<file>.obs,",
 " <file>.nav, <file>.gnav, <file>.hnav, <file>.qnav, <file>.lnav and",
@@ -527,6 +528,12 @@ int main(int argc, char **argv)
     /* parse command line options */
     format=cmdopts(argc,argv,&opt,&ifile,ofile,&dir,&trace,&path);
 
+    if (path && (format != STRFMT_UBX)) {
+        fprintf(stderr,
+                "inet input stream is only available for ubx format\n");
+        return -1;
+    }
+
     if (!*ifile) {
         fprintf(stderr,"no input file\n");
         return -1;
@@ -535,6 +542,17 @@ int main(int argc, char **argv)
         fprintf(stderr,"input format can not be recognized\n");
         return -1;
     }
+
+    strinit(&stream);
+
+    if (path) {
+        if(!stropen(&stream,STR_TCPCLI,STR_MODE_R, path)) {
+            fprintf(stderr, "unable to open stream");
+            return -1;
+        }
+        strsettimeout(&stream,timeout,reconnect);
+    }
+
     sprintf(opt.prog,"%s %s",PRGNAME,VER_RTKLIB);
     sprintf(opt.comment[0],"log: %-55.55s",ifile);
     sprintf(opt.comment[1],"format: %s",formatstrs[format]);
@@ -551,17 +569,8 @@ int main(int argc, char **argv)
     signal(SIGTERM, sigshut); /* external shutdown signal */
     signal(SIGUSR2, sigshut);
 
-    strinit(&stream);
-
-    if (path) {
-        if(!stropen(&stream,STR_TCPCLI,STR_MODE_R, path))
-            goto exit;
-        strsettimeout(&stream,timeout,reconnect);
-    }
-
     stat=convbin(format,&opt,ifile,ofile,dir,&intflg,&stream);
 
-exit:
     strclose(&stream);
     traceclose();
     return stat;
