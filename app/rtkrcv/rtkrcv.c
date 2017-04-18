@@ -95,11 +95,11 @@ static int timetype     =0;             /* time format (0:gpst,1:utc,2:jst,3:tow
 static int soltype      =0;             /* sol format (0:dms,1:deg,2:xyz,3:enu,4:pyl) */
 static int solflag      =2;             /* sol flag (1:std+2:age/ratio/ns) */
 static int strtype[]={                  /* stream types */
-    STR_FILE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE
+    STR_FILE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE,STR_NONE
 };
-static char strpath[8][MAXSTR]={"","","","","","","",""}; /* stream paths */
+static char strpath[MAXSTRRTK][MAXSTR]={"","","","","","","","","",""}; /* stream paths */
 static int strfmt[]={                   /* stream formats */
-    STRFMT_UBX,STRFMT_RTCM3,STRFMT_SP3,SOLF_LLH,SOLF_NMEA
+    STRFMT_UBX,STRFMT_RTCM3,STRFMT_SP3,SOLF_LLH,SOLF_NMEA,SOLF_LLH,SOLF_LLH
 };
 static int svrcycle     =10;            /* server cycle (ms) */
 static int timeout      =10000;         /* timeout time (ms) */
@@ -121,7 +121,7 @@ static int fswapmargin  =30;            /* file swap margin (s) */
 static char sta_name[256]="";           /* station name */
 
 static prcopt_t prcopt;                 /* processing options */
-static solopt_t solopt[2]={{0}};        /* solution options */
+static solopt_t solopt[MAXSOLRTK]={{0}};        /* solution options */
 static filopt_t filopt  ={""};          /* file options */
 
 /* help text -----------------------------------------------------------------*/
@@ -206,16 +206,22 @@ static opt_t rcvopts[]={
     {"inpstr2-nmeahgt", 1,  (void *)&nmeapos[2],         "m"    },
     {"outstr1-type",    3,  (void *)&strtype[3],         OSTOPT },
     {"outstr2-type",    3,  (void *)&strtype[4],         OSTOPT },
+    {"outstr3-type",    3,  (void *)&strtype[5],         OSTOPT },
+    {"outstr4-type",    3,  (void *)&strtype[6],         OSTOPT },
     {"outstr1-path",    2,  (void *)strpath [3],         ""     },
     {"outstr2-path",    2,  (void *)strpath [4],         ""     },
+    {"outstr3-path",    2,  (void *)strpath [5],         ""     },
+    {"outstr4-path",    2,  (void *)strpath [6],         ""     },
     {"outstr1-format",  3,  (void *)&strfmt [3],         SOLOPT },
     {"outstr2-format",  3,  (void *)&strfmt [4],         SOLOPT },
-    {"logstr1-type",    3,  (void *)&strtype[5],         OSTOPT },
-    {"logstr2-type",    3,  (void *)&strtype[6],         OSTOPT },
-    {"logstr3-type",    3,  (void *)&strtype[7],         OSTOPT },
-    {"logstr1-path",    2,  (void *)strpath [5],         ""     },
-    {"logstr2-path",    2,  (void *)strpath [6],         ""     },
-    {"logstr3-path",    2,  (void *)strpath [7],         ""     },
+    {"outstr3-format",  3,  (void *)&strfmt [5],         SOLOPT },
+    {"outstr4-format",  3,  (void *)&strfmt [6],         SOLOPT },
+    {"logstr1-type",    3,  (void *)&strtype[7],         OSTOPT },
+    {"logstr2-type",    3,  (void *)&strtype[8],         OSTOPT },
+    {"logstr3-type",    3,  (void *)&strtype[9],         OSTOPT },
+    {"logstr1-path",    2,  (void *)strpath [7],         ""     },
+    {"logstr2-path",    2,  (void *)strpath [8],         ""     },
+    {"logstr3-path",    2,  (void *)strpath [9],         ""     },
 
     {"misc-svrcycle",   0,  (void *)&svrcycle,           "ms"   },
     {"misc-timeout",    0,  (void *)&timeout,            "ms"   },
@@ -398,14 +404,15 @@ static int startsvr(vt_t *vt)
     char s1[3][MAXRCVCMD]={"","",""},*cmds[]={NULL,NULL,NULL};
     char s2[3][MAXRCVCMD]={"","",""},*cmds_periodic[]={NULL,NULL,NULL};
     char *ropts[]={"","",""};
-    char *paths[]={
-        strpath[0],strpath[1],strpath[2],strpath[3],strpath[4],strpath[5],
-        strpath[6],strpath[7]
-    };
+    char *paths[MAXSTRRTK];
     char errmsg[2048]="";
-    int i,ret,stropt[8]={0};
+    int i,ret,stropt[MAXSTRRTK]={0};
 
     trace(3,"startsvr:\n");
+
+    for (i=0; i<MAXSTRRTK; i++) {
+        paths[i] = strpath[i];
+    }
 
     /* read start commads from command files */
     for (i=0;i<3;i++) {
@@ -420,7 +427,7 @@ static int startsvr(vt_t *vt)
         else cmds_periodic[i]=s2[i];
     }
     /* confirm overwrite */
-    for (i=3;i<8;i++) {
+    for (i=3;i<MAXSTRRTK;i++) {
         if (strtype[i]==STR_FILE&&!confwrite(vt,strpath[i])) return 0;
     }
     if (prcopt.refpos==4) { /* rtcm */
@@ -444,6 +451,7 @@ static int startsvr(vt_t *vt)
         trace(2,"geoid data open error: %s\n",filopt.geoid);
         vt_printf(vt,"geoid data open error: %s\n",filopt.geoid);
     }
+
     for (i=0;*rcvopts[i].name;i++) modflgr[i]=0;
     for (i=0;*sysopts[i].name;i++) modflgs[i]=0;
 
@@ -466,8 +474,10 @@ static int startsvr(vt_t *vt)
         trace(2,"command exec error: %s (%d)\n",startcmd,ret);
         vt_printf(vt,"command exec error: %s (%d)\n",startcmd,ret);
     }
-    solopt[0].posf=strfmt[3];
-    solopt[1].posf=strfmt[4];
+
+    for (i=0; i<MAXSOLRTK; i++) {
+        solopt[i].posf = strfmt[SOLUTIONSTROFFSET+i];
+    }
 
     /* start rtk server */
     if (!rtksvrstart(&svr,svrcycle,buffsize,strtype,paths,strfmt,navmsgsel,
@@ -922,9 +932,11 @@ static void prerror(vt_t *vt)
 /* print stream --------------------------------------------------------------*/
 static void prstream(vt_t *vt)
 {
+    int log_stream_number = SOLUTIONSTROFFSET + MAXSOLRTK;
+
     const char *ch[]={
         "input rover","input base","input corr","output sol1","output sol2",
-        "log rover","log base","log corr","monitor"
+        "output sol3","output sol4","log rover","log base","log corr","monitor"
     };
     const char *type[]={
         "-","serial","file","tcpsvr","tcpcli","udp","ntrips","ntripc","ftp",
@@ -933,25 +945,26 @@ static void prstream(vt_t *vt)
     const char *fmt[]={"rtcm2","rtcm3","oem4","oem3","ubx","ss2","hemis","skytreq",
                        "gw10","javad","nvs","binex","rt17","sbf","cmr","","","sp3",""};
     const char *sol[]={"llh","xyz","enu","nmea","stat","gsif","erb","-"};
-    stream_t stream[9];
-    int i,format[9]={0};
+    stream_t stream[MAXSTRRTK+1];
+    int i,format[MAXSTRRTK+1]={0};
 
     trace(4,"prstream:\n");
 
     rtksvrlock(&svr);
-    for (i=0;i<8;i++) stream[i]=svr.stream[i];
-    for (i=0;i<3;i++) format[i]=svr.format[i];
-    for (i=3;i<5;i++) format[i]=svr.solopt[i-3].posf;
-    stream[8]=moni;
-    format[8]=SOLF_LLH;
+    for (i=0;i<MAXSTRRTK;i++) stream[i]=svr.stream[i];
+    for (i=0;i<SOLUTIONSTROFFSET;i++) format[i]=svr.format[i];
+    for (i=SOLUTIONSTROFFSET;i<SOLUTIONSTROFFSET+MAXSOLRTK;i++)
+        format[i]=svr.solopt[i-SOLUTIONSTROFFSET].posf;
+    stream[MONITORSTRN]=moni;
+    format[MONITORSTRN]=SOLF_LLH;
     rtksvrunlock(&svr);
 
     vt_printf(vt,"\n%s%-12s %-8s %-5s %s %10s %7s %10s %7s %-24s %s%s\n",ESC_BOLD,
               "Stream","Type","Fmt","S","In-byte","In-bps","Out-byte","Out-bps",
               "Path","Message",ESC_RESET);
-    for (i=0;i<9;i++) {
+    for (i=0;i<(MAXSTRRTK+1);i++) {
         vt_printf(vt,"%-12s %-8s %-5s %s %10d %7d %10d %7d %-24.24s %s\n",
-            ch[i],type[stream[i].type],i<3?fmt[format[i]]:(i<5||i==8?sol[format[i]]:"-"),
+            ch[i],type[stream[i].type],i<3?fmt[format[i]]:(i<log_stream_number||i==MONITORSTRN?sol[format[i]]:"-"),
             stream[i].state<0?"E":(stream[i].state?"C":"-"),
             stream[i].inb,stream[i].inr,stream[i].outb,stream[i].outr,
             stream[i].path,stream[i].msg);
