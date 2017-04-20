@@ -528,10 +528,17 @@ int main(int argc, char **argv)
     /* parse command line options */
     format=cmdopts(argc,argv,&opt,&ifile,ofile,&dir,&trace,&path);
 
-    if (path && (format != STRFMT_UBX)) {
-        fprintf(stderr,
-                "inet input stream is only available for ubx format\n");
-        return -1;
+    if (path) {
+        switch (format) {
+            case STRFMT_UBX: break;
+            case STRFMT_RTCM2: break;
+            case STRFMT_RTCM3: break;
+            default: {
+                fprintf(stderr,
+                        "inet input stream is only available for {ubx,rtcm2,rtcm3}\n");
+                return -1;
+            }
+        }
     }
 
     if (!*ifile) {

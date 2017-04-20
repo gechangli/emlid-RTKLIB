@@ -1694,8 +1694,8 @@ EXPORT int init_rtcm   (rtcm_t *rtcm);
 EXPORT void free_rtcm  (rtcm_t *rtcm);
 EXPORT int input_rtcm2 (rtcm_t *rtcm, unsigned char data);
 EXPORT int input_rtcm3 (rtcm_t *rtcm, unsigned char data);
-EXPORT int input_rtcm2f(rtcm_t *rtcm, FILE *fp);
-EXPORT int input_rtcm3f(rtcm_t *rtcm, FILE *fp);
+EXPORT int input_rtcm2f(rtcm_t *rtcm, FILE *fp, stream_t *stream);
+EXPORT int input_rtcm3f(rtcm_t *rtcm, FILE *fp, stream_t *stream);
 EXPORT int gen_rtcm2   (rtcm_t *rtcm, int type, int sync);
 EXPORT int gen_rtcm3   (rtcm_t *rtcm, int type, int sync);
 

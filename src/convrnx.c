@@ -301,13 +301,13 @@ static int input_strfile(strfile_t *str, stream_t *stream)
     trace(4,"input_strfile:\n");
     
     if (str->format==STRFMT_RTCM2) {
-        if ((type=input_rtcm2f(&str->rtcm,str->fp))>=1) {
+        if ((type=input_rtcm2f(&str->rtcm,str->fp,stream))>=1) {
             str->time=str->rtcm.time;
             str->sat=str->rtcm.ephsat;
         }
     }
     else if (str->format==STRFMT_RTCM3) {
-        if ((type=input_rtcm3f(&str->rtcm,str->fp))>=1) {
+        if ((type=input_rtcm3f(&str->rtcm,str->fp,stream))>=1) {
             str->time=str->rtcm.time;
             str->sat=str->rtcm.ephsat;
         }
@@ -334,7 +334,7 @@ static int open_strfile(strfile_t *str, const char *file, stream_t *stream)
     trace(3,"open_strfile: file=%s\n",file);
     
     if (str->format==STRFMT_RTCM2||str->format==STRFMT_RTCM3) {
-        if (!(str->fp=fopen(file,"rb"))) {
+        if ((!stream->port) && !(str->fp=fopen(file,"rb"))) {
             showmsg("rtcm open error: %s",file);
             return 0;
         }
