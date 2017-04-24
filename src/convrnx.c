@@ -145,8 +145,9 @@ static void rtcm2opt(const rtcm_t *rtcm, rnxopt_t *opt)
     trace(3,"rtcm2opt:\n");
     
     /* comment */
-    sprintf(opt->comment[1]+strlen(opt->comment[1]),", station ID: %d",
-            rtcm->staid);
+    if (!strstr(opt->comment[1], "station ID"))
+        sprintf(opt->comment[1]+strlen(opt->comment[1]),", station ID: %d",
+                rtcm->staid);
     
     /* receiver and antenna info */
     if (!*opt->rec[0]&&!*opt->rec[1]&&!*opt->rec[2]) {
@@ -1127,8 +1128,15 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
             }
             if (opt->te.time&&timediff(te,opt->te)>10.0) break;
 
-            if ((stream->port) && (!syncfile(ofp,opt,str->nav)))
-                break;
+            if (stream->port) {
+                /* set receiver and antenna information to option */
+                if (format==STRFMT_RTCM2||format==STRFMT_RTCM3) {
+                    rtcm2opt(&str->rtcm,opt);
+                }
+
+                if (!syncfile(ofp,opt,str->nav))
+                    break;
+            }
         }
 
         /* close stream file */
