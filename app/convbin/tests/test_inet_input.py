@@ -3,28 +3,34 @@ import os
 import sys
 import signal
 import threading
-from socketserver import StreamRequestHandler, TCPServer
+from SocketServer import StreamRequestHandler, TCPServer
 import pexpect
 
+sent = False
 
-def test(file, args):
+
+def test(file, args, timeout):
+    global sent
+    sent = False
+
     file_dir = "./rinex_file"
     inet_dir = "./rinex_inet"
     convbin = "./../gcc/convbin"
-    timeout = 2
     fail = False
+
+    f = open(file, "rb")
+    data = f.read()
+    f.close()
 
     class TCPHandler(StreamRequestHandler):
 
         def handle(self):
-            try:
-                f = open(file, "rb")
-                data = f.read()
-                f.close()
-            except IOError as error:
-                print(error)
-            else:
+            global sent
+
+            if not sent:
                 self.request.sendall(data)
+
+            sent = True
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", required=True)
@@ -48,9 +54,13 @@ def test(file, args):
     file_output = child_conv.before
     child_conv.close()
 
-    assert not fail,\
-        "timeput = {} secs, {} is not finished".format(timeout, convbin)
-    assert child_conv.exitstatus == 0
+    try:
+        assert not fail,\
+            "timeout = {} secs, {} is not finished".format(timeout, convbin)
+        assert child_conv.exitstatus == 0
+    except AssertionError:
+        print(file_output)
+        raise
 
     index = file_output.rfind(":")
     file_result = file_output[index:].strip("\n").strip("\r")
@@ -75,37 +85,67 @@ def test(file, args):
     inet_output = child_conv.before
     child_conv.expect(pexpect.EOF)
     child_conv.close()
-    assert child_conv.exitstatus == 0
+
+    try:
+        assert child_conv.exitstatus == 0
+    except AssertionError:
+        print(inet_output)
+        raise
 
     index = inet_output.rfind(":")
     inet_result = inet_output[index:].strip("\n").strip("\r")
 
-
     ################################## results ###################################
-    if file_result != inet_result:
-        print("--- {}, result = {}, conbin output:".format(
-            file, repr(file_result)))
-        print(file_output)
-        print("--- {}, result = {}, conbin output:".format(
-            sys_args.path, repr(inet_result)))
-        print(inet_output)
-        print("\n{}: FAILED".format(file))
-        print("Increase timeout, may be convbin is in process, "
-              "current timeout = {} sec".format(timeout))
-        sys.exit(1)
+    for _file in ("{}.obs".format(file.split(".")[0]),
+                  "{}.nav".format(file.split(".")[0]),
+                  "{}.gnav".format(file.split(".")[0])):
+        try:
+            f_file = open("{}/{}".format(file_dir, _file), "r")
+            f_inet = open("{}/{}".format(inet_dir, _file), "r")
+            file_lines = f_file.readlines()
+            inet_lines = f_inet.readlines()
+            f_file.close()
+            f_inet.close()
+        except IOError:
+            continue
+
+        try:
+            assert len(file_lines) == len(inet_lines)
+        except AssertionError:
+            print("--- {}, result = {}, conbin output:".format(
+                file, repr(file_result)))
+            print(file_output)
+            print("--- {}, result = {}, conbin output:".format(
+                sys_args.path, repr(inet_result)))
+            print(inet_output)
+            print("\n{}: FAILED".format(file))
+            print("Increase timeout, may be convbin is in process, "
+                  "current timeout = {} sec".format(timeout))
+            return
 
     print("{}: PASSED".format(file))
 
 
 if __name__ == "__main__":
     logs = []
-    logs.append((
-        "rov_test.log",
-        ["-r", "ubx", "rov_test.log", "-d"]))
 
+    log_name = "raw_201704241658.UBX"
     logs.append((
-        "base_201704201701.RTCM3",
-        ["-r", "rtcm3", "base_201704201701.RTCM3", "-d"]))
+        log_name, ["-v", "3.01", "-r", "ubx", log_name, "-d"], 5))
+
+    log_name = "rov_test.log"
+    logs.append((
+        log_name, ["-v", "3.01", "-r", "ubx", log_name, "-d"], 10))
+
+    log_name = "base_201704241658.RTCM3"
+    logs.append((
+        log_name, ["-v", "3.01", "-r", "rtcm3", log_name, "-d"], 5))
+
+    log_name = "base_201704201701.RTCM3"
+    logs.append((
+        log_name, ["-v", "3.01", "-r", "rtcm3", log_name, "-d"], 15))
 
     for log in logs:
+        print("=" * 100)
         test(*log)
+        print("=" * 100)
