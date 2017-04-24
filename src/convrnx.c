@@ -710,6 +710,45 @@ static int openfile(FILE **ofp, char *files[], const char *file,
     }
     return 1;
 }
+/* sync output files ---------------------------------------------------------*/
+static int syncfile(FILE **ofp, const rnxopt_t *opt, nav_t *nav)
+{
+    int i;
+
+    trace(3,"syncfile:\n");
+
+    for (i=0;i<NOUTFILE;i++) {
+
+        if (!ofp[i]) continue;
+
+        /* seek to the beginning of the file */
+        if (fseek(ofp[i], 0, SEEK_SET)) {
+            showmsg("file seek to the beginning error");
+            return 0;
+        }
+
+        /* rewrite header to file */
+        switch (i) {
+            case 0: outrnxobsh (ofp[0],opt,nav); break;
+            case 1: outrnxnavh (ofp[1],opt,nav); break;
+            case 2: outrnxgnavh(ofp[2],opt,nav); break;
+            case 3: outrnxhnavh(ofp[3],opt,nav); break;
+            case 4: outrnxqnavh(ofp[4],opt,nav); break;
+            case 5: outrnxlnavh(ofp[5],opt,nav); break;
+        }
+
+        /* seek to the end of the file */
+        if (fseek(ofp[i], 0, SEEK_END)) {
+            showmsg("file seek to the end error");
+            return 0;
+        }
+
+        fflush(ofp[i]);
+        fsync(fileno(ofp[i]));
+    }
+
+    return 1;
+}
 /* close output files --------------------------------------------------------*/
 static void closefile(FILE **ofp, const rnxopt_t *opt, nav_t *nav)
 {
@@ -1063,6 +1102,7 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
             if (!(type >= -1)) {
                 if (!*intflg && (stream->port)) {
                     usleep(STR_DELAY_USEC);
+                    continue;
                 } else break;
             } else if (*intflg) break;
 
@@ -1086,6 +1126,9 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
                 setapppos(str,opt);
             }
             if (opt->te.time&&timediff(te,opt->te)>10.0) break;
+
+            if ((stream->port) && (!syncfile(ofp,opt,str->nav)))
+                break;
         }
 
         /* close stream file */
