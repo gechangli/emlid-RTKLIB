@@ -60,7 +60,7 @@ static int is_tint(gtime_t time, gtime_t time_last_msg, double tint)
     if ( tint <= 0.0 ) return 1;
     return ( time_sec >= (time_last_msg_sec + 0.5 * tint) ); 
 }
-/* update time of last message recieved for obs messages --------------------*/
+/* update time of last message received for obs messages --------------------*/
 static void update_time_last_msg(gtime_t time, strconv_t *conv)
 {
     
