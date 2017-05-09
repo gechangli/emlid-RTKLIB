@@ -30,7 +30,7 @@
 *           2014/05/26 1.13 support beidou and galileo
 *                           add output of gal-gps and bds-gps time offset
 *           2014/05/28 1.14 fix bug on memory exception with many sys and freq
-*           2014/08/26 1.15 add functino to swap sol-stat file with keywords
+*           2014/08/26 1.15 add function to swap sol-stat file with keywords
 *           2014/10/21 1.16 fix bug on beidou amb-res with pos2-bdsarmode=0
 *           2014/11/08 1.17 fix bug on ar-degradation by unhealthy satellites
 *           2015/03/23 1.18 residuals referenced to reference satellite
@@ -493,7 +493,7 @@ static void udpos(rtk_t *rtk, double tt)
         for (i=0;i<3;i++) initx(rtk,rtk->sol.rr[i],VAR_POS,i);
         return;
     }
-    /* check variance of estimated postion */
+    /* check variance of estimated position */
     for (i=0;i<3;i++) var+=rtk->P[i+i*rtk->nx]; var/=3.0;
     
     if (var>VAR_POS) {
@@ -1179,7 +1179,7 @@ static int ddres(rtk_t *rtk, const nav_t *nav, double dt, const double *x,
     }
     /* compute factors of ionospheric and tropospheric delay
            - only used if kalman filter contains states for ION and TROP delays
-           ususally insignificant for short baselines (<10km)*/
+           usually insignificant for short baselines (<10km)*/
     for (i=0;i<ns;i++) {
         if (opt->ionoopt>=IONOOPT_EST) {
             im[i]=(ionmapf(posu,azel+iu[i]*2)+ionmapf(posr,azel+ir[i]*2))/2.0;
@@ -1795,7 +1795,7 @@ static int relpos(rtk_t *rtk, const obsd_t *obs, int nu, int nr,
         rtk->sol.snr[j] = obs[j].SNR[0];
         azeld[j*2] = rtk->ssat[i].azel[0];
         azeld[1+j*2] = rtk->ssat[i].azel[1];
-        /*-- Type of sattelite and its id --*/
+        /*-- Type of satellite and its id --*/
         switch (satsys(i+1,&prn)) {
             case SYS_GPS: rtk->sol.typeSV[j] = 0; rtk->sol.idSV[j] = prn-MINPRNGPS+1; break;
             case SYS_GLO: rtk->sol.typeSV[j] = 1; rtk->sol.idSV[j] = prn-MINPRNGLO+1; break;
@@ -1952,7 +1952,7 @@ static int relpos(rtk_t *rtk, const obsd_t *obs, int nu, int nr,
         trace(3,"prevRatios= %.3f %.3f\n",rtk->sol.prev_ratio1,rtk->sol.prev_ratio2);
         /* skip first try if GLO fix-and-hold enabled and IC biases haven't been set yet */
         if (rtk->opt.glomodear!=3 || rtk->holdamb) {  
-            /* for inital ambiguity resolution attempt, include all enabled sats 
+            /* for initial ambiguity resolution attempt, include all enabled sats 
                    bias and xa are fixed solution outputs and are only updated if the ambiguities are resolved */
             gps1=1;    /* always enable gps for initial pass */
             glo1=rtk->opt.glomodear>0?1:0;
@@ -2189,7 +2189,7 @@ extern int rtkpos(rtk_t *rtk, const obsd_t *obs, int n, const nav_t *nav)
     trace(4,"obs=\n"); traceobs(4,obs,n);
     /*trace(5,"nav=\n"); tracenav(5,nav);*/
     
-    /* set base staion position */
+    /* set base station position */
     if (opt->refpos<=POSOPT_RINEX&&opt->mode!=PMODE_SINGLE&&
         opt->mode!=PMODE_MOVEB) {
         for (i=0;i<6;i++) rtk->rb[i]=i<3?opt->rb[i]:0.0;
