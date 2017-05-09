@@ -256,8 +256,9 @@ extern int outerb(unsigned char *buff, const sol_t *sol)
 
     trace(3,"outerb:\n");
 
+    /* convert GPS time of week (double) into milliseconds */
     time = sol->time;
-    gpst = time2gpst(time, &week);
+    gpst = time2gpst(time, &week) * 1000;
 
 
     /*-------------- ERB-VER -----------------------*/
