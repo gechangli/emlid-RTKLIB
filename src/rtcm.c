@@ -323,14 +323,15 @@ extern int input_rtcm3f(rtcm_t *rtcm, FILE *fp, stream_t *stream)
     trace(4,"input_rtcm3f: data=%02x\n",byte_data);
     
     for (i=0;i<4096;i++) {
-        if (!stream->port) {
-            if ((byte_data=fgetc(fp))==EOF) return -2;
-            data = (unsigned char)byte_data;
-        } else {
+        if (stream && stream->port) {
             bytes = strread(stream, buff, 1);
             if (bytes <= 0) return -2;
             data = buff[0];
+        } else {
+            if ((byte_data=fgetc(fp))==EOF) return -2;
+            data = (unsigned char)byte_data;
         }
+
         if ((ret=input_rtcm3(rtcm,data))) return ret;
     }
     return 0; /* return at every 4k bytes */
