@@ -1394,7 +1394,14 @@ extern int outnmea_gst(unsigned char *buff, const sol_t *sol, const ssat_t *ssat
     char *p = (char *) buff, *q, sum;
     gtime_t time;
     int sat, count_rms = 0;
-    ecef2enu(sol->rr, pos);
+    if (sol->type == 0) {
+        ecef2enu(sol->rr, pos);
+    }
+    else {
+        for (i = 0; i < 3; i++) {
+            pos[i] = sol->rr[i];
+        }
+    }
     covenu(pos, sol->qr, Q);
     time = gpst2utc(sol->time);
     if (time.sec >= 0.995) {
