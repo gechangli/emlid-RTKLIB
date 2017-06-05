@@ -1390,19 +1390,20 @@ extern int outnmea_vtg(unsigned char *buff, const sol_t *sol) {
 }
 /* output solution in the form of nmea GST sentence */
 extern int outnmea_gst(unsigned char *buff, const sol_t *sol, const ssat_t *ssat) {
-    double pos[3], Q[9] = {0}, ep[6], sum_rms = 0, range_rms = 0;
+    double pos[3], Q[9] = {0}, P[9] = {0}, ep[6], sum_rms = 0, range_rms = 0;
     char *p = (char *) buff, *q, sum;
     gtime_t time;
-    int sat, count_rms = 0;
+    int sat, count_rms = 0, i = 0;
+
     if (sol->type == 0) {
-        ecef2enu(sol->rr, pos);
+        ecef2pos(sol->rr, pos);
+        soltocov(sol, P);
+        covenu(pos, P, Q);
     }
     else {
-        for (i = 0; i < 3; i++) {
-            pos[i] = sol->rr[i];
-        }
+        soltocov(sol, Q);
     }
-    covenu(pos, sol->qr, Q);
+
     time = gpst2utc(sol->time);
     if (time.sec >= 0.995) {
         time.time++;
