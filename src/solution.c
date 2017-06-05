@@ -1355,7 +1355,7 @@ extern int outnmea_vtg(unsigned char *buff, const sol_t *sol) {
     static double dirp = 0.0;
     double pos[3], enuv[3], vel, dir, amag = 0.0;
     char *p = (char *) buff, *q, sum, *emag = "E";
-    char posmode = "";
+    char posmode;
     trace(3, "outnmea_vtg:\n");
     if (sol->stat <= SOLQ_NONE) {
         p += sprintf(p, "$GPVTG,,,,,,,");
@@ -1373,16 +1373,16 @@ extern int outnmea_vtg(unsigned char *buff, const sol_t *sol) {
     } else dir = dirp;
     switch (sol->stat) {
         case SOLQ_DR:
-            posmode = "E";
+            posmode = 'E';
             break;
         case SOLQ_FIX || SOLQ_FLOAT || SOLQ_DGPS:
-            posmode = "D";
+            posmode = 'D';
             break;
         default:
-            posmode = "A";
+            posmode = 'A';
             break;
     }
-    p += sprintf(p, "$GPVTG,%4.2f,T,%4.2f,M,%4.2f,N,%4.2f,K,%s", dir, dir + (emag == 'E' ? 1 : -1) * amag, vel / KNOT2M,
+    p += sprintf(p, "$GPVTG,%4.2f,T,%4.2f,M,%4.2f,N,%4.2f,K,%c", dir, dir + (*emag == 'E' ? 1 : -1) * amag, vel / KNOT2M,
                  +vel, posmode);
     for (q = (char *) buff + 1, sum = 0; *q; q++) sum ^= *q; /* check-sum */
     p += sprintf(p, "*%02X%c%c", sum, 0x0D, 0x0A);
@@ -1393,7 +1393,7 @@ extern int outnmea_gst(unsigned char *buff, const sol_t *sol, const ssat_t *ssat
     double pos[3], Q[9] = {0}, P[9] = {0}, ep[6], sum_rms = 0, range_rms = 0;
     char *p = (char *) buff, *q, sum;
     gtime_t time;
-    int sat, count_rms = 0, i = 0;
+    int sat, count_rms = 0;
 
     if (sol->type == 0) {
         ecef2pos(sol->rr, pos);
