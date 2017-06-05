@@ -1429,7 +1429,7 @@ extern int outnmea_gst(unsigned char *buff, const sol_t *sol, const ssat_t *ssat
         }
     }
     range_rms = SQRT(sum_rms) / count_rms;
-    p += sprintf(p, "$GPGST,%02.0f%02.0f%05.2f,%4.2f,,,,%4.2f,%4.2f,%4.2f",
+    p += sprintf(p, "$GPGST,%02.0f%02.0f%05.2f,%5.3f,,,,%5.3f,%5.3f,%5.3f",
                  +ep[3], ep[4], ep[5], range_rms, SQRT(Q[0]), SQRT(Q[4]), SQRT(Q[8]));
 
     for (q = (char *) buff + 1, sum = 0; *q; q++) sum ^= *q; /* check-sum */
