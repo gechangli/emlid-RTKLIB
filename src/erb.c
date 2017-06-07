@@ -180,8 +180,8 @@ static void builddops(char *payload, struct erb_dops dops, const uint32_t time,
     dops.timeGPS = time;
     dops.dopGeo = 100 * sol->dop[0];
     dops.dopPos = 100 * sol->dop[1];
-    dops.dopVer = 100 * sol->dop[2];
-    dops.dopHor = 100 * sol->dop[3];
+    dops.dopHor = 100 * sol->dop[2];
+    dops.dopVer = 100 * sol->dop[3];
     memcpy(payload, &dops, LENGTH_DOPS);
 }
 /* build ERB-VEL message -----------------------------------------------------*/
