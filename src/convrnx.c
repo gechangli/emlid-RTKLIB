@@ -34,6 +34,7 @@ static const char rcsid[]="$Id:$";
 
 #define NOUTFILE        7       /* number of output files */
 #define TSTARTMARGIN    60.0    /* time margin for file name replacement */
+#define STR_DELAY       25.0    /* ms */
 
 /* type definition -----------------------------------------------------------*/
 
@@ -143,8 +144,9 @@ static void rtcm2opt(const rtcm_t *rtcm, rnxopt_t *opt)
     trace(3,"rtcm2opt:\n");
     
     /* comment */
-    sprintf(opt->comment[1]+strlen(opt->comment[1]),", station ID: %d",
-            rtcm->staid);
+    if (!strstr(opt->comment[1], "station ID"))
+        sprintf(opt->comment[1]+strlen(opt->comment[1]),", station ID: %d",
+                rtcm->staid);
     
     /* receiver and antenna info */
     if (!*opt->rec[0]&&!*opt->rec[1]&&!*opt->rec[2]) {
@@ -292,26 +294,26 @@ static void free_strfile(strfile_t *str)
     free(str);
 }
 /* input stream file ---------------------------------------------------------*/
-static int input_strfile(strfile_t *str)
+static int input_strfile(strfile_t *str, stream_t *stream)
 {
     int type=0;
     
     trace(4,"input_strfile:\n");
     
     if (str->format==STRFMT_RTCM2) {
-        if ((type=input_rtcm2f(&str->rtcm,str->fp))>=1) {
+        if ((type=input_rtcm2f(&str->rtcm,str->fp,stream))>=1) {
             str->time=str->rtcm.time;
             str->sat=str->rtcm.ephsat;
         }
     }
     else if (str->format==STRFMT_RTCM3) {
-        if ((type=input_rtcm3f(&str->rtcm,str->fp))>=1) {
+        if ((type=input_rtcm3f(&str->rtcm,str->fp,stream))>=1) {
             str->time=str->rtcm.time;
             str->sat=str->rtcm.ephsat;
         }
     }
     else if (str->format<=MAXRCVFMT) {
-        if ((type=input_rawf(&str->raw,str->format,str->fp))>=1) {
+        if ((type=input_rawf(&str->raw,str->format,str->fp,stream))>=1) {
             str->time=str->raw.time;
             str->sat=str->raw.ephsat;
         }
@@ -327,27 +329,29 @@ static int input_strfile(strfile_t *str)
     return type;
 }
 /* open stream file ----------------------------------------------------------*/
-static int open_strfile(strfile_t *str, const char *file)
+static int open_strfile(strfile_t *str, const char *file, stream_t *stream)
 {
     trace(3,"open_strfile: file=%s\n",file);
     
     if (str->format==STRFMT_RTCM2||str->format==STRFMT_RTCM3) {
-        if (!(str->fp=fopen(file,"rb"))) {
+        if ((!stream->port) && !(str->fp=fopen(file,"rb"))) {
             showmsg("rtcm open error: %s",file);
             return 0;
         }
     }
     else if (str->format<=MAXRCVFMT) {
-        if (!(str->fp=fopen(file,"rb"))) {
+        if ((!stream->port) && !(str->fp=fopen(file,"rb"))) {
             showmsg("log open error: %s",file);
             return 0;
         }
         /* read head to resolve time ambiguity */
         if (str->time.time==0) {
             str->raw.flag=1;
-            while (input_strfile(str)>=-1&&str->time.time==0) ;
+            while (input_strfile(str,stream)>=-1&&str->time.time==0)
+                ;
             str->raw.flag=1;
-            rewind(str->fp);
+            if (!stream->port)
+                rewind(str->fp);
         }
     }
     else if (str->format==STRFMT_RINEX) {
@@ -444,7 +448,7 @@ static void setopt_obstype(const unsigned char *codes,
 }
 /* scan observation types ----------------------------------------------------*/
 static int scan_obstype(int format, const char *file, rnxopt_t *opt,
-                        gtime_t *time)
+                        gtime_t *time, stream_t *stream)
 {
     strfile_t *str;
     unsigned char codes[7][33]={{0}};
@@ -456,12 +460,12 @@ static int scan_obstype(int format, const char *file, rnxopt_t *opt,
     
     if (!(str=gen_strfile(format,opt->rcvopt,*time))) return 0;
     
-    if (!open_strfile(str,file)) {
+    if (!open_strfile(str,file,stream)) {
         free_strfile(str);
         return 0;
     }
     /* scan codes in input file */
-    while ((type=input_strfile(str))>=-1) {
+    while ((type=input_strfile(str,stream))>=-1) {
         
         if (type!=1||str->obs->n<=0) continue;
         
@@ -704,6 +708,45 @@ static int openfile(FILE **ofp, char *files[], const char *file,
             case 5: outrnxlnavh(ofp[5],opt,nav); break;
         }
     }
+    return 1;
+}
+/* sync output files ---------------------------------------------------------*/
+static int syncfile(FILE **ofp, const rnxopt_t *opt, nav_t *nav)
+{
+    int i;
+
+    trace(3,"syncfile:\n");
+
+    for (i=0;i<NOUTFILE;i++) {
+
+        if (!ofp[i]) continue;
+
+        /* seek to the beginning of the file */
+        if (fseek(ofp[i], 0, SEEK_SET)) {
+            showmsg("file seek to the beginning error");
+            return 0;
+        }
+
+        /* rewrite header to file */
+        switch (i) {
+            case 0: outrnxobsh (ofp[0],opt,nav); break;
+            case 1: outrnxnavh (ofp[1],opt,nav); break;
+            case 2: outrnxgnavh(ofp[2],opt,nav); break;
+            case 3: outrnxhnavh(ofp[3],opt,nav); break;
+            case 4: outrnxqnavh(ofp[4],opt,nav); break;
+            case 5: outrnxlnavh(ofp[5],opt,nav); break;
+        }
+
+        /* seek to the end of the file */
+        if (fseek(ofp[i], 0, SEEK_END)) {
+            showmsg("file seek to the end error");
+            return 0;
+        }
+
+        fflush(ofp[i]);
+        fsync(fileno(ofp[i]));
+    }
+
     return 1;
 }
 /* close output files --------------------------------------------------------*/
@@ -980,7 +1023,7 @@ static int showstat(int sess, gtime_t ts, gtime_t te, int *n)
 }
 /* rinex converter for single-session ----------------------------------------*/
 static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
-                     char **ofile)
+                     char **ofile, int *intflg, stream_t *stream)
 {
     FILE *ofp[NOUTFILE]={NULL};
     strfile_t *str;
@@ -989,6 +1032,7 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
     int i,j,nf,type,n[NOUTFILE+2]={0},abort=0;
     char path[1024],*paths[NOUTFILE],s[NOUTFILE][1024];
     char *epath[MAXEXFILE]={0},*staid=*opt->staid?opt->staid:"0000";
+    unsigned int last_timestamp, timestamp; /* ms */
     
     trace(3,"convrnx_s: sess=%d format=%d file=%s ofile=%s %s %s %s %s %s %s\n",
           sess,format,file,ofile[0],ofile[1],ofile[2],ofile[3],ofile[4],
@@ -1007,14 +1051,16 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
         }
     }
     nf=expath(path,epath,MAXEXFILE);
-    
+
+    if (stream->port) nf = 1;
+
     if (format==STRFMT_RTCM2||format==STRFMT_RTCM3) {
         time=opt->trtcm;
     }
     if (opt->scanobs) {
         
         /* scan observation types */
-        if (!scan_obstype(format,epath[0],opt,&time)) return 0;
+        if (!scan_obstype(format,epath[0],opt,&time,stream)) return 0;
     }
     else {
         /* set observation types by format */
@@ -1045,11 +1091,24 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
     for (i=0;i<nf&&!abort;i++) {
         
         /* open stream file */
-        if (!open_strfile(str,epath[i])) continue;
-        
+        if (!open_strfile(str,epath[i],stream)) continue;
+
+        last_timestamp = tickget();
+
         /* input message */
-        for (j=0;(type=input_strfile(str))>=-1;j++) {
-            
+        for (j=0;;j++) {
+            type=input_strfile(str,stream);
+
+            trace(5, "convrnx_s: type=%i, intflg=%i\n", type, *intflg);
+
+            /* type >= -1 if input data is available */
+            if (!(type >= -1)) {
+                if (!*intflg && (stream->port)) {
+                    sleepms(STR_DELAY);
+                    continue;
+                } else break;
+            } else if (*intflg) break;
+
             if (j%11==1&&(abort=showstat(sess,te,te,n))) break;
             
             /* avioid duplicated if overlapped data */
@@ -1070,12 +1129,27 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
                 setapppos(str,opt);
             }
             if (opt->te.time&&timediff(te,opt->te)>10.0) break;
+
+            timestamp = tickget();
+
+            /* update information and sync data every one second */
+            if (stream->port && (timestamp-last_timestamp) >= 1000.0) {
+                /* set receiver and antenna information to option */
+                if (format==STRFMT_RTCM2||format==STRFMT_RTCM3) {
+                    rtcm2opt(&str->rtcm,opt);
+                }
+
+                if (!syncfile(ofp,opt,str->nav)) break;
+                last_timestamp = timestamp;
+            }
         }
+
         /* close stream file */
         close_strfile(str);
         
         tend=te; /* end time of a file */
     }
+
     /* set receiver and antenna information to option */
     if (format==STRFMT_RTCM2||format==STRFMT_RTCM3) {
         rtcm2opt(&str->rtcm,opt);
@@ -1125,7 +1199,8 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
 *          id (%r)
 *          the order of wild-card expanded files must be in-order by time
 *-----------------------------------------------------------------------------*/
-extern int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile)
+extern int convrnx(int format, rnxopt_t *opt, const char *file,
+                   char **ofile, int *intflg, stream_t *stream)
 {
     gtime_t t0={0};
     rnxopt_t opt_=*opt;
@@ -1142,7 +1217,7 @@ extern int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile)
         
         /* single-session */
         opt_.tstart=opt_.tend=t0;
-        stat=convrnx_s(0,format,&opt_,file,ofile);
+        stat=convrnx_s(0,format,&opt_,file,ofile,intflg,stream);
     }
     else if (timediff(opt->ts,opt->te)<=0.0) {
         
@@ -1159,7 +1234,7 @@ extern int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile)
             if (timediff(opt_.ts,opt->ts)<0.0) opt_.ts=opt->ts;
             if (timediff(opt_.te,opt->te)>0.0) opt_.te=opt->te;
             opt_.tstart=opt_.tend=t0;
-            if ((stat=convrnx_s(i+1,format,&opt_,file,ofile))<0) break;
+            if ((stat=convrnx_s(i+1,format,&opt_,file,ofile,intflg,stream))<0) break;
         }
     }
     else {

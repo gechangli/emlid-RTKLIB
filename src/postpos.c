@@ -214,7 +214,7 @@ static void update_rtcm_ssr(gtime_t time)
         fp_rtcm=fopen(path,"rb");
         if (fp_rtcm) {
             rtcm.time=time;
-            input_rtcm3f(&rtcm,fp_rtcm);
+            input_rtcm3f(&rtcm,fp_rtcm,NULL);
             trace(2,"rtcm file open: %s\n",path);
         }
     }
@@ -222,7 +222,7 @@ static void update_rtcm_ssr(gtime_t time)
     
     /* read rtcm file until current time */
     while (timediff(rtcm.time,time)<1E-3) {
-        if (input_rtcm3f(&rtcm,fp_rtcm)<-1) break;
+        if (input_rtcm3f(&rtcm,fp_rtcm,NULL)<-1) break;
         
         /* update ssr corrections */
         for (i=0;i<MAXSAT;i++) {

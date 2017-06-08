@@ -11,17 +11,19 @@ OPTIONS= -DTRACE -DENAGLO -DENAQZS -DENAGAL -DENACMP -DENAIRN -DNFREQ=7 -DNEXOBS
 
 CFLAGS = -O3 -ansi -pedantic -Wall -Wno-unused-but-set-variable $(INCLUDE) $(OPTIONS) -g
 
-LDLIBS = -lm -lrt
+LDLIBS = -lm -lrt -lpthread
 
 all  : convbin
 
-convbin    : convbin.o rtkcmn.o rinex.o sbas.o preceph.o rcvraw.o convrnx.o
+convbin    : convbin.o stream.o rtkcmn.o rinex.o sbas.o preceph.o rcvraw.o convrnx.o
 convbin    : rtcm.o rtcm2.o rtcm3.o rtcm3e.o pntpos.o ephemeris.o ionex.o
 convbin    : novatel.o ss2.o ublox.o crescent.o skytraq.o gw10.o javad.o nvs.o
 convbin    : binex.o rt17.o qzslex.o septentrio.o cmr.o
 
 convbin.o  : ../convbin.c
 	$(CC) -c $(CFLAGS) ../convbin.c
+stream.o   : $(SRC)/stream.c
+	$(CC) -c $(CFLAGS) $(SRC)/stream.c
 rtkcmn.o   : $(SRC)/rtkcmn.c
 	$(CC) -c $(CFLAGS) $(SRC)/rtkcmn.c
 rinex.o    : $(SRC)/rinex.c
@@ -76,6 +78,7 @@ cmr.o      : $(SRC)/rcv/cmr.c
 	$(CC) -c $(CFLAGS) $(SRC)/rcv/cmr.c
 
 convbin.o  : $(SRC)/rtklib.h
+stream.o   : $(SRC)/rtklib.h
 rtkcmn.o   : $(SRC)/rtklib.h
 rinex.o    : $(SRC)/rtklib.h
 sbas.o     : $(SRC)/rtklib.h

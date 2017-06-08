@@ -1589,7 +1589,8 @@ EXPORT int outrnxnavb (FILE *fp, const rnxopt_t *opt, const eph_t *eph);
 EXPORT int outrnxgnavb(FILE *fp, const rnxopt_t *opt, const geph_t *geph);
 EXPORT int outrnxhnavb(FILE *fp, const rnxopt_t *opt, const seph_t *seph);
 EXPORT int rtk_uncompress(const char *file, char *uncfile);
-EXPORT int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile);
+EXPORT int convrnx(int format, rnxopt_t *opt, const char *file, char **ofile,
+                   int *intflg, stream_t *stream);
 EXPORT int  init_rnxctr (rnxctr_t *rnx);
 EXPORT void free_rnxctr (rnxctr_t *rnx);
 EXPORT int  open_rnxctr (rnxctr_t *rnx, FILE *fp);
@@ -1646,7 +1647,7 @@ EXPORT int decode_gal_inav(const unsigned char *buff, eph_t *eph);
 EXPORT int init_raw   (raw_t *raw, int format);
 EXPORT void free_raw  (raw_t *raw);
 EXPORT int input_raw  (raw_t *raw, int format, unsigned char data);
-EXPORT int input_rawf (raw_t *raw, int format, FILE *fp);
+EXPORT int input_rawf (raw_t *raw, int format, FILE *fp, stream_t *stream);
 
 EXPORT int init_rt17  (raw_t *raw);
 EXPORT int init_cmr   (raw_t *raw);
@@ -1670,7 +1671,7 @@ EXPORT int input_cmr   (raw_t *raw, unsigned char data);
 EXPORT int input_lexr  (raw_t *raw, unsigned char data);
 EXPORT int input_oem4f (raw_t *raw, FILE *fp);
 EXPORT int input_oem3f (raw_t *raw, FILE *fp);
-EXPORT int input_ubxf  (raw_t *raw, FILE *fp);
+EXPORT int input_ubxf  (raw_t *raw, FILE *fp, stream_t *stream);
 EXPORT int input_ss2f  (raw_t *raw, FILE *fp);
 EXPORT int input_cresf (raw_t *raw, FILE *fp);
 EXPORT int input_stqf  (raw_t *raw, FILE *fp);
@@ -1693,8 +1694,8 @@ EXPORT int init_rtcm   (rtcm_t *rtcm);
 EXPORT void free_rtcm  (rtcm_t *rtcm);
 EXPORT int input_rtcm2 (rtcm_t *rtcm, unsigned char data);
 EXPORT int input_rtcm3 (rtcm_t *rtcm, unsigned char data);
-EXPORT int input_rtcm2f(rtcm_t *rtcm, FILE *fp);
-EXPORT int input_rtcm3f(rtcm_t *rtcm, FILE *fp);
+EXPORT int input_rtcm2f(rtcm_t *rtcm, FILE *fp, stream_t *stream);
+EXPORT int input_rtcm3f(rtcm_t *rtcm, FILE *fp, stream_t *stream);
 EXPORT int gen_rtcm2   (rtcm_t *rtcm, int type, int sync);
 EXPORT int gen_rtcm3   (rtcm_t *rtcm, int type, int sync);
 
