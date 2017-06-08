@@ -28,14 +28,13 @@
 *           2015/05/24 1.10 fix bug on setting antenna delta in rtcm2opt()
 *           2015/07/04 1.11 support IRNSS
 *-----------------------------------------------------------------------------*/
-#include <unistd.h>
 #include "rtklib.h"
 
 static const char rcsid[]="$Id:$";
 
 #define NOUTFILE        7       /* number of output files */
 #define TSTARTMARGIN    60.0    /* time margin for file name replacement */
-#define STR_DELAY_USEC 25000
+#define STR_DELAY       25.0    /* ms */
 
 /* type definition -----------------------------------------------------------*/
 
@@ -1033,6 +1032,7 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
     int i,j,nf,type,n[NOUTFILE+2]={0},abort=0;
     char path[1024],*paths[NOUTFILE],s[NOUTFILE][1024];
     char *epath[MAXEXFILE]={0},*staid=*opt->staid?opt->staid:"0000";
+    unsigned int last_timestamp, timestamp; /* ms */
     
     trace(3,"convrnx_s: sess=%d format=%d file=%s ofile=%s %s %s %s %s %s %s\n",
           sess,format,file,ofile[0],ofile[1],ofile[2],ofile[3],ofile[4],
@@ -1092,7 +1092,9 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
         
         /* open stream file */
         if (!open_strfile(str,epath[i],stream)) continue;
-        
+
+        last_timestamp = tickget();
+
         /* input message */
         for (j=0;;j++) {
             type=input_strfile(str,stream);
@@ -1102,7 +1104,7 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
             /* type >= -1 if input data is available */
             if (!(type >= -1)) {
                 if (!*intflg && (stream->port)) {
-                    usleep(STR_DELAY_USEC);
+                    sleepms(STR_DELAY);
                     continue;
                 } else break;
             } else if (*intflg) break;
@@ -1128,14 +1130,17 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
             }
             if (opt->te.time&&timediff(te,opt->te)>10.0) break;
 
-            if (stream->port) {
+            timestamp = tickget();
+
+            /* update information and sync data every one second */
+            if (stream->port && (timestamp-last_timestamp) >= 1000.0) {
                 /* set receiver and antenna information to option */
                 if (format==STRFMT_RTCM2||format==STRFMT_RTCM3) {
                     rtcm2opt(&str->rtcm,opt);
                 }
 
-                if (!syncfile(ofp,opt,str->nav))
-                    break;
+                if (!syncfile(ofp,opt,str->nav)) break;
+                last_timestamp = timestamp;
             }
         }
 
