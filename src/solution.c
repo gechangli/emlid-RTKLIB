@@ -1660,6 +1660,8 @@ extern int outsolexs(unsigned char *buff, const sol_t *sol, const ssat_t *ssat,
     if (opt->posf==SOLF_NMEA) {
         p+=outnmea_gsa(p,sol,ssat);
         p+=outnmea_gsv(p,sol,ssat);
+        p+=outnmea_gst(p,sol,ssat);
+        p+=outnmea_vtg(p,sol);
     }
     return p-buff;
 }
