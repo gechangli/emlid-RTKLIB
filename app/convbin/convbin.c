@@ -32,6 +32,7 @@
 *           2016/06/09 1.14 fix bug on output file with -v 3.02
 *           2016/07/01 1.15 support log format CMR/CMR+
 *           2016/07/31 1.16 add option -halfc
+*           2017/05/26  1.17 add input format tersus
 *-----------------------------------------------------------------------------*/
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,6 +77,8 @@ static const char *help[]={
 " Trimble               : RT17",
 " Septentrio            : SBF",
 " CMR                   : CMR Type 0, 1, 2, 3, 4, CMR+ Type 1, 2, 3",
+" TERSUS                : RANGECMPB, RANGEB, GPSEPHEMB, GLOEPHEMERISB,",
+"                         BDSEPHEMERISB",
 " RINEX                 : OBS, NAV, GNAV, HNAV, LNAV, QNAV",
 "",
 " Options [default]",
@@ -101,6 +104,7 @@ static const char *help[]={
 "                  rt17 = Trimble RT17",
 "                  sbf  = Septentrio SBF",
 "                  cmr  = CMR/CMR+",
+"                  tersus= TERSUS",
 "                  rinex= RINEX",
 "     -ro opt      receiver options",
 "     -f freq      number of frequencies [2]",
@@ -154,6 +158,7 @@ static const char *help[]={
 "     *.rt17        Trimble RT17",
 "     *.sbf         Septentrio SBF",
 "     *.cmr         CMR/CMR+",
+"     *.trs         TERSUS",
 "     *.obs,*.*o    RINEX OBS"
 };
 /* print help ----------------------------------------------------------------*/
@@ -176,13 +181,13 @@ static int convbin(int format, rnxopt_t *opt, const char *ifile, char **file,
                    char *dir)
 {
     int i,def;
-    char work[1024],ofile_[7][1024]={"","","","","","",""},*ofile[7],*p;
+    char work[1024],ofile_[9][1024]={"","","","","","","","",""},*ofile[9],*p;
     char *extnav=opt->rnxver<=2.99||opt->navsys==SYS_GPS?"N":"P";
     char *extlog=format==STRFMT_LEXR?"lex":"sbs";
     
-    def=!file[0]&&!file[1]&&!file[2]&&!file[3]&&!file[4]&&!file[5]&&!file[6];
+    def=!file[0]&&!file[1]&&!file[2]&&!file[3]&&!file[4]&&!file[5]&&!file[6]&&!file[7]&&!file[8];
     
-    for (i=0;i<7;i++) ofile[i]=ofile_[i];
+    for (i=0;i<9;i++) ofile[i]=ofile_[i];
     
     if (file[0]) strcpy(ofile[0],file[0]);
     else if (*opt->staid) {
@@ -237,20 +242,38 @@ static int convbin(int format, rnxopt_t *opt, const char *ifile, char **file,
     else if (opt->rnxver<=2.99&&def) {
         strcpy(ofile[5],ifile);
         if ((p=strrchr(ofile[5],'.'))) strcpy(p,".lnav");
-        else strcat(ofile[5],".qnav");
+        else strcat(ofile[5],".lnav");
     }
     if (file[6]) strcpy(ofile[6],file[6]);
+    else if (opt->rnxver<=2.99&&*opt->staid) {
+        strcpy(ofile[6],"%r%n0.%yC");
+    }
+    else if (opt->rnxver<=2.99&&def) {
+        strcpy(ofile[6],ifile);
+        if ((p=strrchr(ofile[6],'.'))) strcpy(p,".cnav");
+        else strcat(ofile[6],".cnav");
+    }
+    if (file[7]) strcpy(ofile[7],file[7]);
+    else if (opt->rnxver<=2.99&&*opt->staid) {
+        strcpy(ofile[7],"%r%n0.%yI");
+    }
+    else if (opt->rnxver<=2.99&&def) {
+        strcpy(ofile[7],ifile);
+        if ((p=strrchr(ofile[7],'.'))) strcpy(p,".inav");
+        else strcat(ofile[5],".inav");
+    }
+    if (file[8]) strcpy(ofile[8],file[8]);
     else if (*opt->staid) {
-        strcpy(ofile[6],"%r%n0_%y.");
-        strcat(ofile[6],extlog);
+        strcpy(ofile[8],"%r%n0_%y.");
+        strcat(ofile[8],extlog);
     }
     else if (def) {
-        strcpy(ofile[6],ifile);
-        if ((p=strrchr(ofile[6],'.'))) strcpy(p,".");
-        else strcat(ofile[6],".");
-        strcat(ofile[6],extlog);
+        strcpy(ofile[8],ifile);
+        if ((p=strrchr(ofile[8],'.'))) strcpy(p,".");
+        else strcat(ofile[8],".");
+        strcat(ofile[8],extlog);
     }
-    for (i=0;i<7;i++) {
+    for (i=0;i<9;i++) {
         if (!*dir||!*ofile[i]) continue;
         if ((p=strrchr(ofile[i],FILEPATHSEP))) strcpy(work,p+1);
         else strcpy(work,ofile[i]);
@@ -264,7 +287,9 @@ static int convbin(int format, rnxopt_t *opt, const char *ifile, char **file,
     if (*ofile[3]) fprintf(stderr,"->rinex hnav: %s\n",ofile[3]);
     if (*ofile[4]) fprintf(stderr,"->rinex qnav: %s\n",ofile[4]);
     if (*ofile[5]) fprintf(stderr,"->rinex lnav: %s\n",ofile[5]);
-    if (*ofile[6]) fprintf(stderr,"->sbas log  : %s\n",ofile[6]);
+    if (*ofile[6]) fprintf(stderr,"->rinex cnav: %s\n",ofile[6]);
+    if (*ofile[7]) fprintf(stderr,"->rinex inav: %s\n",ofile[7]);
+    if (*ofile[8]) fprintf(stderr,"->sbas log  : %s\n",ofile[8]);
     
     if (!convrnx(format,opt,ifile,ofile)) {
         fprintf(stderr,"\n");
@@ -434,7 +459,7 @@ static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
         else if (!strcmp(argv[i],"-h" )&&i+1<argc) ofile[3]=argv[++i];
         else if (!strcmp(argv[i],"-q" )&&i+1<argc) ofile[4]=argv[++i];
         else if (!strcmp(argv[i],"-l" )&&i+1<argc) ofile[5]=argv[++i];
-        else if (!strcmp(argv[i],"-s" )&&i+1<argc) ofile[6]=argv[++i];
+        else if (!strcmp(argv[i],"-s" )&&i+1<argc) ofile[8]=argv[++i];
         else if (!strcmp(argv[i],"-trace" )&&i+1<argc) {
             *trace=atoi(argv[++i]);
         }
@@ -468,6 +493,7 @@ static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
         else if (!strcmp(fmt,"rt17" )) format=STRFMT_RT17;
         else if (!strcmp(fmt,"sbf"  )) format=STRFMT_SEPT;
         else if (!strcmp(fmt,"cmr"  )) format=STRFMT_CMR;
+        else if (!strcmp(fmt,"tersus")) format=STRFMT_TERSUS;
         else if (!strcmp(fmt,"rinex")) format=STRFMT_RINEX;
     }
     else {
@@ -486,6 +512,7 @@ static int cmdopts(int argc, char **argv, rnxopt_t *opt, char **ifile,
         else if (!strcmp(p,".rt17" ))  format=STRFMT_RT17;
         else if (!strcmp(p,".sbf"  ))  format=STRFMT_SEPT;
         else if (!strcmp(p,".cmr"  ))  format=STRFMT_CMR;
+        else if (!strcmp(p,".trs"  ))  format=STRFMT_TERSUS;
         else if (!strcmp(p,".obs"  ))  format=STRFMT_RINEX;
         else if (!strcmp(p+3,"o"   ))  format=STRFMT_RINEX;
         else if (!strcmp(p+3,"O"   ))  format=STRFMT_RINEX;
@@ -497,7 +524,7 @@ int main(int argc, char **argv)
 {
     rnxopt_t opt={{0}};
     int format,trace=0,stat;
-    char *ifile="",*ofile[7]={0},*dir="";
+    char *ifile="",*ofile[9]={0},*dir="";
     
     /* parse command line options */
     format=cmdopts(argc,argv,&opt,&ifile,ofile,&dir,&trace);
