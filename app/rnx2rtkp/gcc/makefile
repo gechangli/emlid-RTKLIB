@@ -9,8 +9,8 @@ OPTS    = -DTRACE -DENAGLO -DENAQZS -DENAGAL -DENACMP -DENAIRN -DNFREQ=3 -DIERS_
 
 # for no lapack
 CFLAGS  = -Wall -O3 -ansi -pedantic -Wno-unused-but-set-variable -I$(SRC) $(OPTS) -g
-#LDLIBS  = -lm -lrt
-LDLIBS  = ../../../lib/iers/gcc/iers.a -lgfortran -lm -lrt
+#LDLIBS  = -lm -lrt -lpthread
+LDLIBS  = ../../../lib/iers/gcc/iers.a -lgfortran -lm -lrt -lpthread
 
 #CFLAGS  = -Wall -O3 -ansi -pedantic -Wno-unused-but-set-variable -I$(SRC) -DLAPACK $(OPTS)
 #LDLIBS  = -lm -lrt -llapack -lblas
@@ -27,6 +27,8 @@ LDLIBS  = ../../../lib/iers/gcc/iers.a -lgfortran -lm -lrt
 
 all        : rnx2rtkp
 rnx2rtkp   : rnx2rtkp.o rtkcmn.o rinex.o rtkpos.o postpos.o erb.o solution.o
+rnx2rtkp   : stream.o rcvraw.o novatel.o ss2.o ublox.o crescent.o skytraq.o gw10.o
+rnx2rtkp   : javad.o nvs.o binex.o rt17.o tersus.o septentrio.o cmr.o
 rnx2rtkp   : lambda.o geoid.o sbas.o preceph.o pntpos.o ephemeris.o options.o
 rnx2rtkp   : ppp.o ppp_ar.o ppp_corr.o rtcm.o rtcm2.o rtcm3.o rtcm3e.o ionex.o tides.o qzslex.o
 
@@ -44,6 +46,36 @@ erb.o      : $(SRC)/erb.c
 	$(CC) -c $(CFLAGS) $(SRC)/erb.c
 solution.o : $(SRC)/solution.c
 	$(CC) -c $(CFLAGS) $(SRC)/solution.c
+stream.o   : $(SRC)/stream.c
+	$(CC) -c $(CFLAGS) $(SRC)/stream.c
+novatel.o  : $(SRC)/rcv/novatel.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/novatel.c
+ss2.o      : $(SRC)/rcv/ss2.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/ss2.c
+ublox.o    : $(SRC)/rcv/ublox.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/ublox.c
+crescent.o : $(SRC)/rcv/crescent.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/crescent.c
+skytraq.o  : $(SRC)/rcv/skytraq.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/skytraq.c
+gw10.o     : $(SRC)/rcv/gw10.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/gw10.c
+javad.o    : $(SRC)/rcv/javad.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/javad.c
+nvs.o      : $(SRC)/rcv/nvs.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/nvs.c
+binex.o    : $(SRC)/rcv/binex.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/binex.c
+rt17.o     : $(SRC)/rcv/rt17.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/rt17.c
+tersus.o     : $(SRC)/rcv/tersus.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/tersus.c
+septentrio.o: $(SRC)/rcv/septentrio.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/septentrio.c
+cmr.o      : $(SRC)/rcv/cmr.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcv/cmr.c
+rcvraw.o   : $(SRC)/rcvraw.c
+	$(CC) -c $(CFLAGS) $(SRC)/rcvraw.c
 lambda.o   : $(SRC)/lambda.c
 	$(CC) -c $(CFLAGS) $(SRC)/lambda.c
 geoid.o    : $(SRC)/geoid.c
