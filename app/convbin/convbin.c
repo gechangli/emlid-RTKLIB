@@ -46,8 +46,8 @@ static const char rcsid[]="$Id: convbin.c,v 1.1 2008/07/17 22:13:04 ttaka Exp $"
 #define PRGNAME   "CONVBIN"
 #define TRACEFILE "convbin.trace"
 
-static int timeout      =5000;         /* timeout time (ms) */
-static int reconnect    =5000;         /* reconnect interval (ms) */
+static int timeout      =0;         /* no timeout */
+static int reconnect    =0;         /* not reconnect interval */
 static int intflg       =0;
 
 /* external stop signal ------------------------------------------------------*/
