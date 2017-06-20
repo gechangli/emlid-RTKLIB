@@ -1257,7 +1257,7 @@ static int convrnx_s(int sess, int format, rnxopt_t *opt, const char *file,
             if (stream->port && (timestamp-last_timestamp) >= 1000.0) {
                 /* set receiver and antenna information to option */
                 if (format==STRFMT_RTCM2||format==STRFMT_RTCM3) {
-                    rtcm2opt(&str->rtcm,&stas,opt);
+                    rtcm2opt(&str->rtcm,stas,opt);
                 }
 
                 if (!syncfile(ofp,opt,str->nav)) break;
